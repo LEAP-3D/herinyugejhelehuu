@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 const Home = () => {
-  return <>hello from heome</>;
+  return <>catch me if u can !!1</>;
 };
 
 export default Home;
