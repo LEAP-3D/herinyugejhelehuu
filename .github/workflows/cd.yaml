@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: toon-friends-deployment
+  labels:
+    app: toon-friends
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: toon-friends
+  template:
+    metadata:
+      labels:
+        app: toon-friends
+    spec:
+      containers:
+        - name: game-server
+          image: docker.io/tobi/toon-friends:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: MAX_PLAYERS
+              value: "4"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: toon-friends-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: toon-friends
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+      # aksjdhakdhkajhd

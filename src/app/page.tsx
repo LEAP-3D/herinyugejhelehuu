@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
-
 const Home = () => {
-  return <>hello from heome</>;
+  return (
+    <div>
+      catch me if u can !!1
+      <p>Try to find me!</p>
+    </div>
+  );
 };
 
 export default Home;
