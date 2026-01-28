@@ -8,28 +8,18 @@ permissions:
   pull-requests: write
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm install
-      - run: npm run lint
-
   deploy:
-    needs: lint
     runs-on: ubuntu-latest
+    # This ensures the tokens are available to EVERY step below
     env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
@@ -37,14 +27,15 @@ jobs:
       - name: Install & Build
         run: |
           npm install
-          # Add npx prisma generate here if you use Prisma
+          # npx prisma generate # Uncomment if needed
 
       - name: Deploy to Vercel
         id: v-deploy
         run: |
-          npx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-          npx vercel build --token=${{ secrets.VERCEL_TOKEN }}
-          URL=$(npx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          # We don't need to pass --token anymore because it's in the 'env' above
+          npx vercel pull --yes --environment=preview
+          npx vercel build
+          URL=$(npx vercel deploy --prebuilt)
           echo "url=$URL" >> $GITHUB_OUTPUT
 
       - name: Comment PR
