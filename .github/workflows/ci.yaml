@@ -36,43 +36,46 @@ jobs:
       - name: Build Next.js
         run: npm run build
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: lint-and-build
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-    env:
-      PRISMA_CLI_QUERY_ENGINE_TYPE: "library"
-      PRISMA_CLIENT_ENGINE_TYPE: "library"
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-    steps:
-      - uses: actions/checkout@v4
+deploy:
+  runs-on: ubuntu-latest
+  needs: lint-and-build
+  if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+  env:
+    PRISMA_CLI_QUERY_ENGINE_TYPE: "library"
+    PRISMA_CLIENT_ENGINE_TYPE: "library"
+    VERCEL_ORG_ID: ${{ secrets.VERCEL_Team_ID }}
+    VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  steps:
+    - uses: actions/checkout@v4
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+    - name: Install Vercel CLI
+      run: npm install --global vercel@latest
 
-      - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }} --token=${{ secrets.VERCEL_TOKEN }}
+    - name: Pull Vercel Environment Information
+      run: vercel pull --yes --environment=${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
 
-      - name: Build Project Artifacts
-        run: vercel build ${{ github.ref == 'refs/heads/main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
+    - name: Build Project Artifacts
+      run: vercel build ${{ github.ref == 'refs/heads/main' && '--prod' || '' }}
 
-      - name: Deploy Project Artifacts to Vercel
-        id: deploy
-        run: |
-          COMMAND="${{ github.ref == 'refs/heads/main' && 'vercel deploy --prebuilt --prod' || 'vercel deploy --prebuilt' }}"
-          # Capture the URL while masking the output to avoid leaking info
-          URL=$($COMMAND --token=${{ secrets.VERCEL_TOKEN }})
-          echo "DEPLOY_URL=$URL" >> $GITHUB_OUTPUT
+    - name: Deploy Project Artifacts to Vercel
+      id: deploy
+      run: |
+        # Use --prod flag if on main, and capture ONLY the URL using pipe
+        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          URL=$(vercel deploy --prebuilt --prod)
+        else
+          URL=$(vercel deploy --prebuilt)
+        fi
+        echo "DEPLOY_URL=$URL" >> $GITHUB_OUTPUT
 
-      - name: Post Comment to PR
-        if: github.event_name == 'pull_request'
-        uses: mshick/add-pr-comment@v2
-        with:
-          message: |
-            ### 🚀 Vercel Preview Deployment Successful!
+    - name: Post Comment to PR
+      if: github.event_name == 'pull_request'
+      uses: mshick/add-pr-comment@v2
+      with:
+        message: |
+          ### 🚀 Vercel Preview Deployment Successful!
 
-            **URL:** [${{ steps.deploy.outputs.DEPLOY_URL }}](${{ steps.deploy.outputs.DEPLOY_URL }})
-            **Environment:** ${{ github.ref == 'refs/heads/main' && 'Production' || 'Preview' }}
-            **Commit:** ${{ github.sha }}
-            **Tag:** #chassadk_
+          **URL:** ${{ steps.deploy.outputs.DEPLOY_URL }}
+          **Environment:** ${{ github.ref == 'refs/heads/main' && 'Production' || 'Preview' }}
+          **Commit:** ${{ github.sha }}
