@@ -2,15 +2,26 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run lint
+
   deploy:
+    needs: lint
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -20,30 +31,25 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "latest"
-          cache: "npm"
+          node-version: 20
+          cache: npm
 
       - name: Install & Build
         run: |
-          npm ci
-          npx prisma generate
-          npm run lint
+          npm install
+          # Add npx prisma generate here if you use Prisma
 
-      - name: Vercel Operations
+      - name: Deploy to Vercel
         id: v-deploy
         run: |
-          # 1. Pull settings
-          npx vercel pull --yes --environment=${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }} --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          npx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          URL=$(npx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$URL" >> $GITHUB_OUTPUT
 
-          # 2. Build artifacts
-          npx vercel build ${{ github.ref == 'refs/heads/main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
-
-          # 3. Deploy and save URL
-          DEPLOY_URL=$(npx vercel deploy --prebuilt ${{ github.ref == 'refs/heads/main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }})
-          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
-
-      - name: Post PR Comment
-        if: github.event_name == 'pull_request'
+      - name: Comment PR
         uses: mshick/add-pr-comment@v2
         with:
-          message: "🚀 **Vercel Deployment Successful!** \n\n **URL:** ${{ steps.v-deploy.outputs.url }}"
+          message: |
+            🚀 **Vercel Preview Deployed!**
+            **URL:** ${{ steps.v-deploy.outputs.url }}
