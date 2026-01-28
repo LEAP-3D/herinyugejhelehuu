@@ -2,92 +2,69 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
-  lint:
+  lint-and-deploy: # Merged into one job for speed and artifact sharing
     runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      PRISMA_CLI_QUERY_ENGINE_TYPE: "library"
+      PRISMA_CLIENT_ENGINE_TYPE: "library"
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "latest"
           cache: "npm"
+
       - name: Install dependencies
         run: npm ci
+
       - name: Run Lint
         run: npm run lint
 
-  build:
-    needs: lint
-    runs-on: ubuntu-latest
-    env:
-      # These are now globally available to all steps in this job
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "latest"
-          cache: "npm"
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
-      - name: Install dependencies
-        run: npm ci
-      - name: Generate Prisma Client
-        run: npx prisma generate
-      - name: Vercel Pull and Build
-        run: |
-          # The CLI finds the token and IDs automatically from the env block
-          vercel pull --yes --environment=preview
-          vercel build
 
-  preview:
-    needs: build
-    runs-on: ubuntu-latest
-    env:
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "latest"
-          cache: "npm"
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-      - name: Install dependencies
-        run: npm ci
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      - name: Pull and Deploy Preview
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts
+        run: vercel build ${{ github.ref == 'refs/heads/main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy Project Artifacts to Vercel
         id: deploy
         run: |
-          vercel pull --yes --environment=preview
-          vercel build
-          # We capture the URL output to use in the PR comment
-          DEPLOY_URL=$(vercel deploy --prebuilt)
-          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          else
+            URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          fi
+          echo "url=$URL" >> $GITHUB_OUTPUT
 
       - name: Post Preview Link to PR
+        if: github.event_name == 'pull_request'
+        
         uses: mshick/add-pr-comment@v2
         with:
           message-id: vercel-preview
           message: |
-            🚀 **Vercel Preview Deployed!**
+            🚀 **Vercel Deployment Successful!**
 
-            **URL:** ${{ steps.deploy.outputs.url }}
-            **Environment:** Preview
+            **URL:** [${{ steps.deploy.outputs.url }}](${{ steps.deploy.outputs.url }})
+            **Environment:** ${{ github.ref == 'refs/heads/main' && 'Production' || 'Preview' }}
             **Latest Commit:** ${{ github.sha }}
-
-            # askjhdkashdkahdkjahdkjahdkjhakjdshkasjdhkjashd
