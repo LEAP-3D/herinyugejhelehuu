@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-build-deploy: # Combined into one job for speed and reliability
+  lint-build-deploy:
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -30,9 +30,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Generate Prisma Client
-        run: npx prisma generate
 
       - name: Lint
         run: npm run lint
@@ -57,5 +54,6 @@ jobs:
         with:
           message: |
             🚀 **TOON Friends Preview Ready!**
+
             Built with success. Test the latest changes here: 
-            ${{ steps.deploy.outputs.url }} 
+            ${{ steps.deploy.outputs.url }}
