@@ -1,6 +1,5 @@
 "use client";
 
-
 const Home = () => {
   return <>catch me if u can !!1</>;
 };

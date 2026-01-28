@@ -8,13 +8,13 @@ permissions:
   pull-requests: write
 
 jobs:
-  deploy:
+  lint-and-deploy:
     runs-on: ubuntu-latest
-    # This ensures the tokens are available to EVERY step below
     env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      # Setting these here ensures they are available to all steps
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -24,23 +24,28 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install & Build
-        run: |
-          npm install
-          # npx prisma generate # Uncomment if needed
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Lint
+        run: npm run lint
 
       - name: Deploy to Vercel
-        id: v-deploy
+        id: deploy
         run: |
-          # We don't need to pass --token anymore because it's in the 'env' above
-          npx vercel pull --yes --environment=preview
-          npx vercel build
-          URL=$(npx vercel deploy --prebuilt)
-          echo "url=$URL" >> $GITHUB_OUTPUT
+          # 1. Pull environment settings
+          npx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Comment PR
+          # 2. Build the project
+          npx vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+          # 3. Deploy and capture the URL
+          DEPLOY_URL=$(npx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+
+      - name: Post PR Comment
         uses: mshick/add-pr-comment@v2
         with:
           message: |
             🚀 **Vercel Preview Deployed!**
-            **URL:** ${{ steps.v-deploy.outputs.url }}
+            **URL:** [${{ steps.deploy.outputs.url }}](${{ steps.deploy.outputs.url }})
