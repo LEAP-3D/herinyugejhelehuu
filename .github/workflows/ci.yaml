@@ -25,13 +25,18 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npm run lint
-      - run: npm run build
+      # We skip 'npm run build' here because Vercel performs its own build in the next job
 
   deploy-preview:
     needs: lint-and-build
     runs-on: ubuntu-latest
+    # Define environment variables for the Vercel CLI to use
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
@@ -44,7 +49,8 @@ jobs:
       - name: Deploy Project Artifacts to Vercel
         id: deploy
         run: |
-          echo "url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
 
       - name: Comment on PR
         uses: mshick/add-pr-comment@v2
