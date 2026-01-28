@@ -1,7 +1,12 @@
 "use client";
 
 const Home = () => {
-  return <>catch me if u can !!1</>;
+  return (
+    <div>
+      catch me if u can !!1
+      <p>Try to find me!</p>
+    </div>
+  );
 };
 
 export default Home;
