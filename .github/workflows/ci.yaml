@@ -1,82 +1,87 @@
 name: CI
 on:
   pull_request:
-    branches:
-      - main
-  push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
-  id-token: write
   contents: read
   pull-requests: write
 
-concurrency:
-  group: ${{ github.workflow  }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  lint-and-build:
+  lint:
     runs-on: ubuntu-latest
-    env:
-      PRISMA_CLI_QUERY_ENGINE_TYPE: "library"
-      PRISMA_CLIENT_ENGINE_TYPE: "library"
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: "latest"
+          cache: "npm"
       - name: Install dependencies
         run: npm ci
-      - name: Run Next.js lint
+      - name: Run Lint
         run: npm run lint
-      - name: Build Next.js
-        run: npm run build
 
-deploy:
-  runs-on: ubuntu-latest
-  needs: lint-and-build
-  if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-  env:
-    PRISMA_CLI_QUERY_ENGINE_TYPE: "library"
-    PRISMA_CLIENT_ENGINE_TYPE: "library"
-    VERCEL_ORG_ID: ${{ secrets.VERCEL_Team_ID }}
-    VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-    VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-  steps:
-    - uses: actions/checkout@v4
+  build:
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "latest"
+          cache: "npm"
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma Client
+        run: npx prisma generate
+      - name: Vercel Pull and Build
+        run: |
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
 
-    - name: Install Vercel CLI
-      run: npm install --global vercel@latest
+  preview:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "latest"
+          cache: "npm"
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma Client
+        run: npx prisma generate
 
-    - name: Pull Vercel Environment Information
-      run: vercel pull --yes --environment=${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
+      - name: Pull and Deploy Preview
+        id: deploy
+        run: |
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          # Capture the URL into a variable and save it to GITHUB_OUTPUT
+          DEPLOY_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
 
-    - name: Build Project Artifacts
-      run: vercel build ${{ github.ref == 'refs/heads/main' && '--prod' || '' }}
+      - name: Post Preview Link to PR
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-id: vercel-preview # This updates the same comment instead of spammingas
+          message: |
+            🚀 **Vercel Preview Deployed!**
 
-    - name: Deploy Project Artifacts to Vercel
-      id: deploy
-      run: |
-        # Use --prod flag if on main, and capture ONLY the URL using pipe
-        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-          URL=$(vercel deploy --prebuilt --prod)
-        else
-          URL=$(vercel deploy --prebuilt)
-        fi
-        echo "DEPLOY_URL=$URL" >> $GITHUB_OUTPUT
-
-    - name: Post Comment to PR
-      if: github.event_name == 'pull_request'
-      uses: mshick/add-pr-comment@v2
-      with:
-        message: |
-          ### 🚀 Vercel Preview Deployment Successful!
-
-          **URL:** ${{ steps.deploy.outputs.DEPLOY_URL }}
-          **Environment:** ${{ github.ref == 'refs/heads/main' && 'Production' || 'Preview' }}
-          **Commit:** ${{ github.sha }}
-# aksjh
+            **URL:** ${{ steps.deploy.outputs.url }}
+            **Environment:** Preview
+            **Latest Commit:** ${{ github.sha }}
