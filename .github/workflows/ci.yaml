@@ -58,4 +58,4 @@ jobs:
           message: |
             🚀 **TOON Friends Preview Ready!**
             Built with success. Test the latest changes here: 
-            ${{ steps.deploy.outputs.url }}
+            ${{ steps.deploy.outputs.url }} 
