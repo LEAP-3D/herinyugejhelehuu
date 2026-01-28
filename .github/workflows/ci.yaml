@@ -8,44 +8,80 @@ permissions:
   pull-requests: write
 
 jobs:
-  lint-and-deploy:
+  lint:
     runs-on: ubuntu-latest
-    env:
-      # Setting these here ensures they are available to all steps
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-
+          node-version: "latest"
+          cache: "npm"
       - name: Install dependencies
-        run: npm install
-
+        run: npm ci
       - name: Run Lint
         run: npm run lint
 
-      - name: Deploy to Vercel
+  build:
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "latest"
+          cache: "npm"
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma Client
+        run: npx prisma generate
+      - name: Vercel Pull and Build
+        run: |
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+  preview:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "latest"
+          cache: "npm"
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Pull and Deploy Preview
         id: deploy
         run: |
-          # 1. Pull environment settings
-          npx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-
-          # 2. Build the project
-          npx vercel build --token=${{ secrets.VERCEL_TOKEN }}
-
-          # 3. Deploy and capture the URL
-          DEPLOY_URL=$(npx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --token=${{ secrets.VERCEL_TOKEN }}
+          # Capture the URL into a variable and save it to GITHUB_OUTPUT
+          DEPLOY_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
 
-      - name: Post PR Comment
+      - name: Post Preview Link to PR
         uses: mshick/add-pr-comment@v2
         with:
+          message-id: vercel-preview # This updates the same comment instead of spamming
           message: |
             🚀 **Vercel Preview Deployed!**
-            **URL:** [${{ steps.deploy.outputs.url }}](${{ steps.deploy.outputs.url }})
+
+            **URL:** ${{ steps.deploy.outputs.url }}
+            **Environment:** Preview
+            **Latest Commit:** ${{ github.sha }}
