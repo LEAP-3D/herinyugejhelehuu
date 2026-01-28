@@ -19,7 +19,6 @@ concurrency:
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
-    # Add these variables to force Prisma to use the stable library engine
     env:
       PRISMA_CLI_QUERY_ENGINE_TYPE: "library"
       PRISMA_CLIENT_ENGINE_TYPE: "library"
@@ -41,10 +40,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint-and-build
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
-    # It's a good idea to include them here as well if Vercel build uses the Prisma CLI
     env:
       PRISMA_CLI_QUERY_ENGINE_TYPE: "library"
       PRISMA_CLIENT_ENGINE_TYPE: "library"
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -53,24 +53,17 @@ jobs:
 
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }} --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build Project Artifacts
         run: vercel build ${{ github.ref == 'refs/heads/main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy Project Artifacts to Vercel
         id: deploy
         run: |
           COMMAND="${{ github.ref == 'refs/heads/main' && 'vercel deploy --prebuilt --prod' || 'vercel deploy --prebuilt' }}"
-          echo "DEPLOY_URL=$($COMMAND --token=${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          # Capture the URL while masking the output to avoid leaking info
+          URL=$($COMMAND --token=${{ secrets.VERCEL_TOKEN }})
+          echo "DEPLOY_URL=$URL" >> $GITHUB_OUTPUT
 
       - name: Post Comment to PR
         if: github.event_name == 'pull_request'
@@ -80,6 +73,6 @@ jobs:
             ### 🚀 Vercel Preview Deployment Successful!
 
             **URL:** [${{ steps.deploy.outputs.DEPLOY_URL }}](${{ steps.deploy.outputs.DEPLOY_URL }})
-            **Environment:** Preview
+            **Environment:** ${{ github.ref == 'refs/heads/main' && 'Production' || 'Preview' }}
             **Commit:** ${{ github.sha }}
-            # chassadk
+            **Tag:** #chassadk_
