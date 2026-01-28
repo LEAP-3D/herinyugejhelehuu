@@ -48,7 +48,7 @@ jobs:
 
   preview:
     needs: build
-    run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+    runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -86,4 +86,4 @@ jobs:
             **Environment:** Preview
             **Latest Commit:** ${{ github.sha }}
 
-# kjsdhkadfhksdhfkjshfkjshdfkdf
+# asd,majd,asdadasdasdasdjahsgdjhagdjhagjhsdgjhagsdjhagsdjhagjhdgjhagsdhjagjdhgajdgjash
