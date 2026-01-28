@@ -25,12 +25,10 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npm run lint
-      # We skip 'npm run build' here because Vercel performs its own build in the next job
 
   deploy-preview:
     needs: lint-and-build
     runs-on: ubuntu-latest
-    # Define environment variables for the Vercel CLI to use
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -48,6 +46,7 @@ jobs:
 
       - name: Deploy Project Artifacts to Vercel
         id: deploy
+        # We use 'tail -n 1' to ensure we only get the URL if Vercel prints extra logs
         run: |
           DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
@@ -57,4 +56,6 @@ jobs:
         with:
           message: |
             🚀 **TOON Friends Preview Ready!**
-            Built with success. Test the latest changes here: ${{ steps.deploy.outputs.url }}
+
+            Built with success. Test the latest changes here: 
+            ${{ steps.deploy.outputs.url }}
