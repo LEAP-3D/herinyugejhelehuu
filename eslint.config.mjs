@@ -42,6 +42,16 @@ export default [
       "no-unused-vars": "warn",
       "react/react-in-jsx-scope": "off",
       "@next/next/no-html-link-for-pages": "off",
+
+      // FIX: Allow Next.js to use triple-slash references for route types
+      "@typescript-eslint/triple-slash-reference": [
+        "error",
+        {
+          path: "always",
+          types: "prefer-import",
+          lib: "always",
+        },
+      ],
     },
     settings: {
       react: {
