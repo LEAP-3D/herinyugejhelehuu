@@ -1,12 +1,23 @@
 import js from "@eslint/js";
-import nextPlugin from "@next/eslint-plugin-next";
-import reactPlugin from "eslint-plugin-react";
-import hooksPlugin from "eslint-plugin-react-hooks";
 import tsParser from "@typescript-eslint/parser";
 import tsPlugin from "@typescript-eslint/eslint-plugin";
+import { FlatCompat } from "@eslint/eslintrc";
+import { dirname } from "path";
+import { fileURLToPath } from "url";
 
-export default [
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
+
+// Define the configuration as a named variable
+const eslintConfig = [
   js.configs.recommended,
+  // 1. Let Next.js handle its own plugins/rules the way it expects
+  ...compat.extends("next/core-web-vitals"),
+
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
     languageOptions: {
@@ -15,13 +26,10 @@ export default [
         ecmaFeatures: { jsx: true },
       },
       globals: {
-        // Core Environment Globals
         process: "readonly",
         console: "readonly",
         window: "readonly",
         document: "readonly",
-
-        // The missing pieces for Prisma and React
         global: "readonly",
         React: "readonly",
         NodeJS: "readonly",
@@ -29,18 +37,10 @@ export default [
     },
     plugins: {
       "@typescript-eslint": tsPlugin,
-      react: reactPlugin,
-      "react-hooks": hooksPlugin,
-      "@next/next": nextPlugin,
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
-      ...reactPlugin.configs.recommended.rules,
-      ...hooksPlugin.configs.recommended.rules,
-      ...nextPlugin.configs.recommended.rules,
-      ...nextPlugin.configs["core-web-vitals"].rules,
       "no-unused-vars": "warn",
-      "react/react-in-jsx-scope": "off",
       "@next/next/no-html-link-for-pages": "off",
     },
     settings: {
@@ -53,3 +53,6 @@ export default [
     ignores: [".next/", "node_modules/", "dist/"],
   },
 ];
+
+// Export the variable
+export default eslintConfig;
