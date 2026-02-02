@@ -1,10 +1,10 @@
 "use client";
+import LEVEL_1 from "@/app/components/levels/World_1";
 
 const Home = () => {
   return (
     <div>
-      catch me if u can !!1
-      <p>Try to find me!</p>
+      <LEVEL_1 />
     </div>
   );
 };
