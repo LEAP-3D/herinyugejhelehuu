@@ -18,44 +18,65 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       - name: Install dependencies
         run: npm install
-
       - name: Run Next.js lint
         run: npm run lint
-  preview:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
 
-      - name: Install dependencies
-        run: npm install
+  # Build шалгах хэсэг (Vercel-рүү илгээхээс өмнө алдаа байгаа эсэхийг үзнэ)
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       - name: Install dependencies
         run: npm install
+      - name: Run Build
+        run: npm run build
+
+  preview:
+    runs-on: ubuntu-latest
+    needs: [lint, build] # Lint болон Build амжилттай болсны дараа ажиллана
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=preview --token=${{ secrets.SECRET_VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.TEAM_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.PROJECT_ID }}
+
+      - name: Build Project Artifacts
+        run: vercel build --token=${{ secrets.SECRET_VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.TEAM_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.PROJECT_ID }}
+
+      - name: Deploy Preview to Vercel
+        id: deploy
+        run: |
+          COMMAND_OUTPUT=$(vercel deploy --prebuilt --token=${{ secrets.SECRET_VERCEL_TOKEN }})
+          echo "preview_url=$COMMAND_OUTPUT" >> $GITHUB_OUTPUT
+        env:
+          VERCEL_ORG_ID: ${{ secrets.TEAM_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.PROJECT_ID }}
+
+      - name: Comment on PR
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: |
+            🚀 Vercel Preview бэлэн боллоо!
+            URL: ${{ steps.deploy.outputs.preview_url }}
+            # jasghdkahdkajshd

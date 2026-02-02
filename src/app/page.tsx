@@ -1,4 +1,5 @@
 "use client";
+import LEVEL_1 from "@/app/components/levels/World_1";
 
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -9,9 +10,11 @@ export default function HomeMenu() {
     router.push("/Home-page/Player");
   };
   return (
-    <main className="relative min-h-screen overflow-hidden">
-      {/* Background */}
-      <Page />
+    <div>
+      <LEVEL_1 />
+    </div>
+  );
+};
 
       {/* Foreground content */}
       <div className="relative center flexrelative z-10 min-h-screen flex flex-col items-center justify-start pt-124 gap-4.75 pr-40">
