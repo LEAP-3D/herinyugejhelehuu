@@ -15,28 +15,34 @@ spec:
       containers:
         - name: game-server
           image: tobi/toon-friends:latest
-          imagePullPolicy: Always
           ports:
             - containerPort: 3000
-              protocol: TCP # Explicit TCP for Socket.IO
+
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+
           env:
             - name: NODE_ENV
               value: "production"
             - name: MAX_PLAYERS
               value: "4"
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 3000
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 3000
-            initialDelaySeconds: 15
-            periodSeconds: 20
-            failureThreshold: 3 # Give it some leeway before restart
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -54,4 +60,3 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 3000
-      name: http # Named port for clarity
