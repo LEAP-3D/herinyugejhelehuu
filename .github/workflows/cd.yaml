@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: toon-friends-deployment
+  labels:
+    app: toon-friends
 spec:
   replicas: 1
   selector:
@@ -12,31 +14,30 @@ spec:
       labels:
         app: toon-friends
     spec:
-      containers:
-        - name: game-server
-          image: tobi/toon-friends:latest
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 3000
-              protocol: TCP # Explicit TCP for Socket.IO
-          env:
-            - name: NODE_ENV
-              value: "production"
-            - name: MAX_PLAYERS
-              value: "4"
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 3000
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 3000
-            initialDelaySeconds: 15
-            periodSeconds: 20
-            failureThreshold: 3 # Give it some leeway before restart
+      # containers:
+      #   - name: game-server
+      #     image: docker.io/tobi/toon-friends:latest
+      #     imagePullPolicy: Always
+      #     ports:
+      #       - containerPort: 3000
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 3000
+        initialDelaySeconds: 15
+        periodSeconds: 10
+      env:
+        - name: NODE_ENV
+          value: "production"
+        - name: MAX_PLAYERS
+          value: "4"
+      resources:
+        requests:
+          cpu: "250m"
+          memory: "256Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
 ---
 apiVersion: v1
 kind: Service
@@ -44,14 +45,10 @@ metadata:
   name: toon-friends-service
 spec:
   type: LoadBalancer
-  sessionAffinity: ClientIP # Critical for Socket.IO sticky sessions
-  sessionAffinityConfig:
-    clientIP:
-      timeoutSeconds: 10800 # 3 hours - prevents disconnects during long sessions
   selector:
     app: toon-friends
   ports:
     - protocol: TCP
       port: 80
       targetPort: 3000
-      name: http # Named port for clarity
+      # aksjdhakdhkajhdasdasd
