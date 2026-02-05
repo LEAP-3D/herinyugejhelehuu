@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
+import { isRoomState } from "@/types/room";
+import type { RoomState } from "@/types/room";
 
 type PCount = 2 | 3 | 4;
 const SOCKET_URL = "http://localhost:4000";
@@ -17,6 +19,7 @@ export default function HostPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [roomCodeUi, setRoomCodeUi] = useState("");
+  const [, setRoom] = useState<RoomState | null>(null);
 
   const createRoom = async () => {
     setErr("");
@@ -41,11 +44,9 @@ export default function HostPage() {
       });
 
       // createDenied ирэх магадлалтай (code давхцвал)
-      socket.on("createDenied", (e: any) => {
-        setErr(e?.message ?? "Create denied");
-        socket.disconnect();
+      socket.on("roomState", (data: unknown) => {
+        if (isRoomState(data)) setRoom(data as RoomState);
       });
-
       // roomState ирмэгц lobby руу орно
       socket.once("roomState", () => {
         // ✅ disconnect хийхгүй
@@ -71,7 +72,7 @@ export default function HostPage() {
         style={{ backgroundImage: `url("/image 12 (4).png")` }}
       />
 
-      <div className="relative z-10 w-[900px] max-w-[92vw] aspect-[16/9] flex flex-col items-center justify-center">
+      <div className="relative z-10 w-255 max-w-[92vw] aspect-video flex flex-col items-center justify-center">
         <h1 className="text-white text-5xl tracking-widest drop-shadow">
           HOST ROOM
         </h1>

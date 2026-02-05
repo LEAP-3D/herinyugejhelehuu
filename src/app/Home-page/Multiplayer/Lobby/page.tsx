@@ -17,7 +17,16 @@ type RoomState = {
 };
 
 const SOCKET_URL = "http://localhost:4000";
+type SocketErr = { message?: string };
 
+function getErrMessage(e: unknown, fallback: string) {
+  if (typeof e === "string") return e;
+  if (e && typeof e === "object" && "message" in e) {
+    const msg = (e as SocketErr).message;
+    if (typeof msg === "string" && msg.trim()) return msg;
+  }
+  return fallback;
+}
 export default function LobbyPage() {
   const router = useRouter();
   const socketRef = useRef<Socket | null>(null);
@@ -74,12 +83,21 @@ export default function LobbyPage() {
       }
     });
 
-    socket.on("heroDenied", (e: any) => setErr(e?.message ?? "Hero taken"));
-    socket.on("readyDenied", (e: any) =>
-      setErr(e?.message ?? "Choose hero first"),
+    socket.on("heroDenied", (e: unknown) =>
+      setErr(getErrMessage(e, "Hero taken")),
     );
-    socket.on("joinDenied", (e: any) => setErr(e?.message ?? "Join denied"));
-    socket.on("startDenied", (e: any) => setErr(e?.message ?? "Start denied"));
+
+    socket.on("readyDenied", (e: unknown) =>
+      setErr(getErrMessage(e, "Choose hero first")),
+    );
+
+    socket.on("joinDenied", (e: unknown) =>
+      setErr(getErrMessage(e, "Join denied")),
+    );
+
+    socket.on("startDenied", (e: unknown) =>
+      setErr(getErrMessage(e, "Start denied")),
+    );
 
     socket.on("startGame", () => {
       router.push("/test-map");
@@ -92,17 +110,14 @@ export default function LobbyPage() {
   }, [mounted, roomCodeLS, playerIdLS, router]);
 
   const selectHero = (id: Hero) => {
-    setErr("");
     socketRef.current?.emit("selectHero", { hero: id });
   };
 
   const toggleReady = () => {
-    setErr("");
     socketRef.current?.emit("setReady", { ready: !meReady });
   };
 
   const hostStart = () => {
-    setErr("");
     socketRef.current?.emit("startGameNow");
   };
 
@@ -130,8 +145,8 @@ export default function LobbyPage() {
         }`}
       >
         <div
-          className={`relative w-[150px] h-[150px] ${
-            isSelected ? "outline outline-[6px] outline-lime-400" : ""
+          className={`relative w-37.5 h-37.5 ${
+            isSelected ? " outline-[6px] outline-lime-400" : ""
           }`}
         >
           <Image src={img} alt={label} fill className="object-contain" />
@@ -175,7 +190,7 @@ export default function LobbyPage() {
         style={{ backgroundImage: `url("/image 12 (4).png")` }}
       />
 
-      <div className="relative z-10 min-h-screen flex flex-col items-center pt-[190px] justify-start gap-6">
+      <div className="relative z-10 min-h-screen flex flex-col items-center pt-47.5 justify-start gap-6">
         <p
           style={{ fontFamily: "Joystix" }}
           className="text-white font-joystix text-[64px] font-normal leading-normal"
@@ -191,8 +206,8 @@ export default function LobbyPage() {
 
         {err && <div className="text-red-300">{err}</div>}
 
-        <div className="flex flex-row pt-[123px] gap-[70px]">
-          <div className="pr-[40px]">
+        <div className="flex flex-row pt-30.75 gap-17.5">
+          <div className="pr-10">
             <HeroCard id="finn" img="/hero1.png" label="FINN" />
           </div>
           <HeroCard id="jake" img="/hero2.png" label="JAKE" />
@@ -204,7 +219,7 @@ export default function LobbyPage() {
         <button
           type="button"
           onClick={() => (isHostLS ? hostStart() : toggleReady())}
-          className="flex pt-[129px] transition active:translate-y-1"
+          className="flex pt-32.25 transition active:translate-y-1"
         >
           <Image src="/PLAY BIUTTON6.png" alt="Ready" width={265} height={69} />
         </button>

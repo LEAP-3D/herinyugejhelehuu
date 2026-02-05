@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { rooms, generateRoomCode } from "../store";
+import { rooms, generateRoomCode, Room } from "../store";
 
 function makePlayerId() {
   return crypto.randomUUID();
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     players: [hostId], // join API-тай нийцүүлэхийн тулд хадгалж байна (заавал биш)
   };
 
-  rooms.set(code, room as any);
+  rooms.set(code, room as Room);
 
   return NextResponse.json({ ok: true, roomCode: code, hostId, maxPlayers });
 }

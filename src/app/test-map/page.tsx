@@ -176,7 +176,7 @@ export default function PicoGame() {
 
   return (
     <main className="flex h-screen w-full items-center justify-center bg-indigo-50 p-4 font-mono">
-      <div className="relative w-[900px] h-[600px] bg-white rounded-3xl shadow-2xl overflow-hidden border-8 border-slate-900">
+      <div className="relative w-255 h-155 bg-white rounded-3xl shadow-2xl overflow-hidden border-8 border-slate-900">
         {/* ✅ debug hero */}
         <div className="absolute top-3 left-4 z-50 text-black/70 text-sm">
           Hero: {myHero}
@@ -192,7 +192,7 @@ export default function PicoGame() {
           }}
         >
           <div
-            className="absolute z-10 w-[56px] h-[72px]"
+            className="absolute z-10 w-14 h-18"
             style={{ transform: `translate3d(${pos.x}px, ${pos.y}px, 0)` }}
           >
             <Sprite

@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
-
+import type { RoomState } from "@/types/room";
+import { isRoomState } from "@/types/room";
 const SOCKET_URL = "http://localhost:4000";
 
 export default function JoinPage() {
@@ -12,6 +13,7 @@ export default function JoinPage() {
   const [roomCode, setRoomCode] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [, setRoom] = useState<RoomState | null>(null);
 
   const join = () => {
     setErr("");
@@ -30,10 +32,8 @@ export default function JoinPage() {
     // ✅ server дээр room байгаа эсэхийг joinRoom-оор шалгана
     socket.emit("joinRoom", { roomCode: clean, playerId });
 
-    socket.on("joinDenied", (e: any) => {
-      setErr(e?.message ?? "Join denied");
-      socket.disconnect();
-      setLoading(false);
+    socket.on("roomState", (data: unknown) => {
+      if (isRoomState(data)) setRoom(data as RoomState);
     });
 
     socket.on("roomState", () => {
@@ -55,7 +55,7 @@ export default function JoinPage() {
         style={{ backgroundImage: `url("/image 12 (4).png")` }}
       />
 
-      <div className="relative z-10 w-[900px] max-w-[92vw] aspect-[16/9] flex flex-col items-center justify-center">
+      <div className="relative z-10 w-255 max-w-[92vw] aspect-video flex flex-col items-center justify-center">
         <h1 className="text-white text-5xl tracking-widest drop-shadow">
           JOIN ROOM
         </h1>
