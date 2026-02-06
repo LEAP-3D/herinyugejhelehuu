@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { io, Socket } from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 
 type GameStatus = "waiting" | "playing" | "won" | "dead";
 
@@ -26,13 +26,15 @@ interface GameState {
   gameStatus: GameStatus;
 }
 
+const SERVER_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+
 export default function MultiPlayerWorld1() {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const socketRef = useRef<Socket | null>(null);
 
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
-
   const [roomCode, setRoomCode] = useState<string>("");
   const [playerId, setPlayerId] = useState<string>("");
 
@@ -56,31 +58,33 @@ export default function MultiPlayerWorld1() {
     setRoomCode(rc);
     setPlayerId(pid);
 
-    const s = io(process.env.SERVER_URL, { transports: ["websocket"] });
-    setSocket(s);
+    socketRef.current = io(SERVER_URL, { transports: ["websocket"] });
 
-    s.on("connect", () => {
+    socketRef.current.on("connect", () => {
       setConnected(true);
-      s.emit("joinRoom", { roomCode: rc, playerId: pid });
+      socketRef.current?.emit("joinRoom", { roomCode: rc, playerId: pid });
     });
 
-    s.on("disconnect", () => setConnected(false));
+    socketRef.current.on("disconnect", () => setConnected(false));
 
-    s.on("joinDenied", () => {
+    socketRef.current.on("joinDenied", () => {
       router.push("/Home-page/Multiplayer/Lobby");
     });
 
-    // ✅ backend :4000 дээрээс gameState ирнэ
-    s.on("gameState", (state: GameState) => {
+    socketRef.current.on("gameState", (state: GameState) => {
       setGameState(state);
     });
 
     return () => {
-      s.disconnect();
+      socketRef.current?.off("connect");
+      socketRef.current?.off("disconnect");
+      socketRef.current?.off("joinDenied");
+      socketRef.current?.off("gameState");
+      socketRef.current?.disconnect();
+      socketRef.current = null;
     };
   }, [router]);
 
-  // ✅ Минимал render (чи хүсвэл үүний оронд хуучин canvas draw функцүүдээ залга)
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -89,17 +93,14 @@ export default function MultiPlayerWorld1() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // background
     ctx.fillStyle = "#2b3640";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // title
     ctx.fillStyle = "white";
     ctx.font = "bold 24px Arial";
     ctx.textAlign = "center";
     ctx.fillText("MULTIPLAYER MAP", canvas.width / 2, 60);
 
-    // status
     ctx.font = "16px Arial";
     ctx.fillText(
       `Room: #${roomCode} | Connected: ${connected ? "YES" : "NO"} | Players: ${Object.keys(gameState.players).length}`,
@@ -107,7 +108,6 @@ export default function MultiPlayerWorld1() {
       95,
     );
 
-    // draw players (demo)
     for (const p of Object.values(gameState.players)) {
       ctx.fillStyle = p.id === playerId ? "#FFD700" : "#ffffff";
       ctx.fillRect(p.x, p.y, p.width, p.height);
@@ -132,7 +132,6 @@ export default function MultiPlayerWorld1() {
     }
   }, [connected, roomCode, playerId, gameState]);
 
-  // canvas size
   useEffect(() => {
     const onResize = () => {
       const c = canvasRef.current;
@@ -145,7 +144,6 @@ export default function MultiPlayerWorld1() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // render loop
   useEffect(() => {
     const t = setInterval(draw, 1000 / 60);
     return () => clearInterval(t);
