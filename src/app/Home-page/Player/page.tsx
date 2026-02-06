@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { io, Socket } from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 
 type Hero = "finn" | "jake" | "ice" | "bmo";
 type PlayerState = { hero: Hero | null; ready: boolean };
@@ -12,6 +12,11 @@ type RoomState = {
   maxPlayers: number;
   players: Record<string, PlayerState>;
 };
+
+type SocketErr = { message?: string };
+
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
 
 export default function LobbyPage() {
   const router = useRouter();
@@ -33,18 +38,16 @@ export default function LobbyPage() {
     typeof window !== "undefined"
       ? localStorage.getItem("isHost") === "true"
       : false;
-  type SocketErr = { message?: string };
 
-  function getErrMessage(e: unknown, fallback: string) {
+  const getErrMessage = useCallback((e: unknown, fallback: string) => {
     if (typeof e === "string") return e;
     if (e && typeof e === "object" && "message" in e) {
       const msg = (e as SocketErr).message;
       if (typeof msg === "string" && msg.trim()) return msg;
     }
     return fallback;
-  }
+  }, []);
 
-  // ✅ taken heroes list
   const takenHeroes = useMemo(() => {
     const set = new Set<Hero>();
     if (!roomState) return set;
@@ -57,46 +60,49 @@ export default function LobbyPage() {
   useEffect(() => {
     if (!roomCode || !playerId) return;
 
-    const socket = io("http://localhost:4000");
-    socketRef.current = socket;
+    // ✅ socket local variable ашиглахгүй (lint алдаа гарахгүй)
+    socketRef.current = io(SOCKET_URL, { transports: ["websocket"] });
 
-    socket.emit("joinRoom", {
+    socketRef.current.emit("joinRoom", {
       roomCode,
       playerId,
       maxPlayers: Number(maxPlayers ?? 4),
     });
 
-    socket.on("roomState", (state: RoomState) => {
+    const onRoomState = (state: RoomState) => {
       setRoomState(state);
 
-      // ✅ өөрийн ready-г sync (чиний кодонд энэ дутаж байсан)
       const me = state.players[playerId];
       if (me) setMeReady(Boolean(me.ready));
-
-      // ✅ өөрийн hero-г sync (сэргээх үед selected зөв болох)
       if (me?.hero) setSelected(me.hero);
-    });
+    };
 
-    // ✅ startGame сонсоод map руу шилжинэ
-    socket.on("startGame", () => {
+    const onStartGame = () => {
       router.push("/test-map");
-    });
-    socket.on("heroDenied", (e: unknown) =>
-      setErr(getErrMessage(e, "Hero taken")),
-    );
+    };
 
-    socket.on("readyDenied", (e: unknown) =>
-      setErr(getErrMessage(e, "Choose hero first")),
-    );
+    const onHeroDenied = (e: unknown) => {
+      setErr(getErrMessage(e, "Hero taken"));
+    };
+
+    const onReadyDenied = (e: unknown) => {
+      setErr(getErrMessage(e, "Choose hero first"));
+    };
+
+    socketRef.current.on("roomState", onRoomState);
+    socketRef.current.on("startGame", onStartGame);
+    socketRef.current.on("heroDenied", onHeroDenied);
+    socketRef.current.on("readyDenied", onReadyDenied);
 
     return () => {
-      socket.off("roomState");
-      socket.off("startGame");
-      socket.off("heroDenied");
-      socket.off("readyDenied");
-      socket.disconnect();
+      socketRef.current?.off("roomState", onRoomState);
+      socketRef.current?.off("startGame", onStartGame);
+      socketRef.current?.off("heroDenied", onHeroDenied);
+      socketRef.current?.off("readyDenied", onReadyDenied);
+      socketRef.current?.disconnect();
+      socketRef.current = null;
     };
-  }, [roomCode, playerId, maxPlayers, router]);
+  }, [roomCode, playerId, maxPlayers, router, getErrMessage]);
 
   const selectHero = (id: Hero) => {
     setErr("");
@@ -109,10 +115,9 @@ export default function LobbyPage() {
     socketRef.current?.emit("setReady", { ready });
   };
 
-  // ✅ Host READY дарвал шууд start хүсэлт явуулна
   const hostStartNow = () => {
     setErr("");
-    socketRef.current?.emit("startGameNow"); // ✅ шинэ event
+    socketRef.current?.emit("startGameNow");
   };
 
   const HeroCard = ({
@@ -135,7 +140,9 @@ export default function LobbyPage() {
         type="button"
         onClick={() => !disabled && selectHero(id)}
         disabled={disabled}
-        className={`flex flex-col items-center ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+        className={`flex flex-col items-center ${
+          disabled ? "opacity-40 cursor-not-allowed" : ""
+        }`}
       >
         <div
           className={`relative w-37.5 h-37.5 ${
@@ -202,7 +209,6 @@ export default function LobbyPage() {
           <HeroCard id="bmo" img="/hero4.png" label="BMO" />
         </div>
 
-        {/* READY / START */}
         <button
           type="button"
           onClick={() => (isHost ? hostStartNow() : setReady(!meReady))}

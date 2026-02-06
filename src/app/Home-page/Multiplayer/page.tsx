@@ -16,7 +16,7 @@ export default function MultiPlayer() {
       {/* Background */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0"
-        style={{ backgroundImage: `url("/image 12 (4).png")` }}
+        style={{ backgroundImage: `url("/ariinzurag")` }}
       />
 
       <div className="absolute inset-0 bg-black/10 z-0" />
@@ -24,24 +24,14 @@ export default function MultiPlayer() {
       {/* Overlay (энэ нь бүүдгэр болгодог) */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0 opacity-120"
-        style={{ backgroundImage: `url("/MacBook Pro 14_ - 2 (4).png")` }}
+        style={{ backgroundImage: `url("Toon-friends.png")` }}
       />
       <div className="relative center flexrelative z-10 min-h-screen flex flex-col items-center justify-start pt-124 gap-4.75 pr-40">
         <button onClick={host} className="transition active:translate-y-1">
-          <Image
-            src="/PLAY BIUTTON2.png"
-            alt="hello"
-            width={440}
-            height={108}
-          />
+          <Image src="/Singl-player.png" alt="hello" width={440} height={108} />
         </button>
         <button onClick={join} className="transition active:translate-y-1">
-          <Image
-            src="/PLAY BIUTTON3.png"
-            alt="hello"
-            width={440}
-            height={108}
-          />
+          <Image src="/Multi-player.png" alt="hello" width={440} height={108} />
         </button>
       </div>
     </>

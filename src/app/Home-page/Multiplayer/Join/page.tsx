@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import type { RoomState } from "@/types/room";
 import { isRoomState } from "@/types/room";
-const SOCKET_URL = "http://localhost:4000";
 
 export default function JoinPage() {
   const router = useRouter();
@@ -27,7 +26,7 @@ export default function JoinPage() {
     setLoading(true);
 
     const playerId = crypto.randomUUID();
-    const socket = io(SOCKET_URL, { transports: ["websocket"] });
+    const socket = io(process.env.SOCKET_URL, { transports: ["websocket"] });
 
     // ✅ server дээр room байгаа эсэхийг joinRoom-оор шалгана
     socket.emit("joinRoom", { roomCode: clean, playerId });
@@ -52,7 +51,7 @@ export default function JoinPage() {
     <div className="relative min-h-screen flex items-center justify-center bg-black">
       <div
         className="absolute inset-0 bg-cover bg-center opacity-70"
-        style={{ backgroundImage: `url("/image 12 (4).png")` }}
+        style={{ backgroundImage: `url("/ariinzurag.png")` }}
       />
 
       <div className="relative z-10 w-255 max-w-[92vw] aspect-video flex flex-col items-center justify-center">
