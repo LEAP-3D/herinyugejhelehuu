@@ -16,7 +16,6 @@ type RoomState = {
   players: Record<string, PlayerState>;
 };
 
-const SOCKET_URL = "http://localhost:4000";
 type SocketErr = { message?: string };
 
 function getErrMessage(e: unknown, fallback: string) {
@@ -65,7 +64,7 @@ export default function LobbyPage() {
     if (!mounted) return;
     if (!roomCodeLS || !playerIdLS) return;
 
-    const socket = io(SOCKET_URL, { transports: ["websocket"] });
+    const socket = io(process.env.SOCKET_URL, { transports: ["websocket"] });
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -100,7 +99,7 @@ export default function LobbyPage() {
     );
 
     socket.on("startGame", () => {
-      router.push("/test-map");
+      router.push("/multiplayer/map1");
     });
 
     return () => {
@@ -187,7 +186,7 @@ export default function LobbyPage() {
     <main className="relative min-h-screen overflow-hidden">
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0 pointer-events-none"
-        style={{ backgroundImage: `url("/image 12 (4).png")` }}
+        style={{ backgroundImage: `url("/ariinzurag.png")` }}
       />
 
       <div className="relative z-10 min-h-screen flex flex-col items-center pt-47.5 justify-start gap-6">
@@ -208,11 +207,11 @@ export default function LobbyPage() {
 
         <div className="flex flex-row pt-30.75 gap-17.5">
           <div className="pr-10">
-            <HeroCard id="finn" img="/hero1.png" label="FINN" />
+            <HeroCard id="finn" img="/Finn.png" label="FINN" />
           </div>
-          <HeroCard id="jake" img="/hero2.png" label="JAKE" />
-          <HeroCard id="ice" img="/hero3.png" label="ICE KING" />
-          <HeroCard id="bmo" img="/hero4.png" label="BMO" />
+          <HeroCard id="jake" img="/Jake.png" label="JAKE" />
+          <HeroCard id="ice" img="/Ice-king.png" label="ICE KING" />
+          <HeroCard id="bmo" img="/Bmo.png" label="BMO" />
         </div>
 
         {/* READY / START */}
@@ -221,7 +220,7 @@ export default function LobbyPage() {
           onClick={() => (isHostLS ? hostStart() : toggleReady())}
           className="flex pt-32.25 transition active:translate-y-1"
         >
-          <Image src="/PLAY BIUTTON6.png" alt="Ready" width={265} height={69} />
+          <Image src="/Ready.png" alt="Ready" width={265} height={69} />
         </button>
 
         <div className="text-white/70 text-sm">

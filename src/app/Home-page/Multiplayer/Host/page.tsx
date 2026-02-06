@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { io } from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 import { isRoomState } from "@/types/room";
 import type { RoomState } from "@/types/room";
 
 type PCount = 2 | 3 | 4;
-const SOCKET_URL = "http://localhost:4000";
 
 function genRoomCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -19,45 +18,78 @@ export default function HostPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [roomCodeUi, setRoomCodeUi] = useState("");
-  const [, setRoom] = useState<RoomState | null>(null);
+
+  // ✅ add this (so RoomState is used)
+  const [roomState, setRoomState] = useState<RoomState | null>(null);
+
+  const socketRef = useRef<Socket | null>(null);
 
   const createRoom = async () => {
     setErr("");
     setLoading(true);
 
-    try {
-      const roomCode = genRoomCode();
-      const hostId = crypto.randomUUID();
+    const roomCode = genRoomCode();
+    const hostId = crypto.randomUUID();
 
-      // localStorage хадгална
-      localStorage.setItem("roomCode", roomCode);
-      localStorage.setItem("playerId", hostId);
-      localStorage.setItem("maxPlayers", String(players));
-      localStorage.setItem("isHost", "true");
+    localStorage.setItem("roomCode", roomCode);
+    localStorage.setItem("playerId", hostId);
+    localStorage.setItem("maxPlayers", String(players));
+    localStorage.setItem("isHost", "true");
 
-      // ✅ socket-оор room үүсгэнэ
-      const socket = io(SOCKET_URL);
+    if (socketRef.current) {
+      socketRef.current.removeAllListeners();
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+    console.log(process.env.SOCKET_URL, "sda");
+    const socket = io(`${process.env.SOCKET_URL}`, {
+      transports: ["websocket"],
+      withCredentials: false,
+    });
+
+    socketRef.current = socket;
+
+    const fail = (msg: string) => {
+      setErr(msg);
+      setLoading(false);
+    };
+
+    socket.on("connect", () => {
+      console.log("✅ socket connected:", socket.id);
+
       socket.emit("createRoom", {
         roomCode,
         maxPlayers: players,
         hostId,
       });
+    });
 
-      // createDenied ирэх магадлалтай (code давхцвал)
-      socket.on("roomState", (data: unknown) => {
-        if (isRoomState(data)) setRoom(data as RoomState);
-      });
-      // roomState ирмэгц lobby руу орно
-      socket.once("roomState", () => {
-        // ✅ disconnect хийхгүй
-        setRoomCodeUi(`#${roomCode}`);
-        router.push("/Home-page/Multiplayer/Lobby");
-      });
-    } catch {
-      setErr("Network error");
-    } finally {
+    socket.on("connect_error", (e) => {
+      console.error("connect_error", e);
+      fail(e.message);
+    });
+
+    socket.on("createDenied", (reason: string) => {
+      fail(`Create denied: ${reason}`);
+    });
+
+    socket.on("roomState", (data: unknown) => {
+      console.log("📦 roomState:", data);
+      if (!isRoomState(data)) return;
+
+      // ✅ add this (now RoomState is actually used)
+      setRoomState(data);
+
+      setRoomCodeUi(`#${roomCode}`);
       setLoading(false);
-    }
+      router.push("/Home-page/Multiplayer/Lobby");
+    });
+
+    setTimeout(() => {
+      if (!roomCodeUi && socketRef.current?.connected) {
+        fail("roomState ирсэнгүй. Backend дээр emit хийж байна уу шалга.");
+      }
+    }, 5000);
   };
 
   const pillClass = (active: boolean) =>
@@ -69,7 +101,7 @@ export default function HostPage() {
     <div className="relative w-full min-h-screen flex items-center justify-center bg-black">
       <div
         className="absolute inset-0 bg-cover bg-center opacity-70"
-        style={{ backgroundImage: `url("/image 12 (4).png")` }}
+        style={{ backgroundImage: `url("/ariinzurag.png")` }}
       />
 
       <div className="relative z-10 w-255 max-w-[92vw] aspect-video flex flex-col items-center justify-center">
@@ -117,6 +149,14 @@ export default function HostPage() {
         <div className="mt-4 text-white/70 text-sm">
           Create дармагц Lobby руу орно. Room code-оо найздаа явуулна.
         </div>
+
+        {/* optional: debug display (remove anytime) */}
+        {roomState && (
+          <div className="mt-3 text-white/60 text-xs">
+            players: {Object.keys(roomState.players ?? {}).length}/
+            {roomState.maxPlayers}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -17,8 +17,8 @@ export default function Page() {
     <>
       {/* Background */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0"
-        style={{ backgroundImage: `url("/image 12 (4).png")` }}
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat -z-10"
+        style={{ backgroundImage: "url('/ariinzurag.png')" }}
       />
 
       <div className="absolute inset-0 bg-black/10 z-0" />
@@ -26,38 +26,23 @@ export default function Page() {
       {/* Overlay (энэ нь бүүдгэр болгодог) */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0 opacity-120 p-0"
-        style={{ backgroundImage: `url("/MacBook Pro 14_ - 2 (4).png")` }}
+        style={{ backgroundImage: `url("/Toon-friends.png")` }}
       />
       <div className="relative center flexrelative z-10 min-h-screen flex flex-col items-center justify-start pt-124 gap-4.75 pr-30">
         <button
           className="transition active:translate-y-1"
           onClick={handleMoreButton}
         >
-          <Image
-            src="/PLAY BIUTTON7.png"
-            alt="hello"
-            width={440}
-            height={108}
-          />
+          <Image src="/Create-room.png" alt="hello" width={440} height={108} />
         </button>
         <button onClick={goMulti} className="transition active:translate-y-1">
-          <Image
-            src="/PLAY BIUTTON8.png"
-            alt="hello"
-            width={440}
-            height={108}
-          />
+          <Image src="/Open-room.png" alt="hello" width={440} height={108} />
         </button>
         <button
           onClick={goSettings}
           className="transition active:translate-y-1"
         >
-          <Image
-            src="/PLAY BIUTTON4.png"
-            alt="hello"
-            width={440}
-            height={108}
-          />
+          <Image src="/Settings.png" alt="hello" width={440} height={108} />
         </button>
       </div>
     </>

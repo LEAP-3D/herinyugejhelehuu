@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   },
   env: {
     DATABASE_URL: process.env.DATABASE_URL || "",
+    SOCKET_URL: process.env.SOCKET_URL || "https://localhost:3000",
   },
 };
 
