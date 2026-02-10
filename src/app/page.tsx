@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import Page from "./Home-page/page";
+
 export default function HomeMenu() {
   const router = useRouter();
   const handleMoreButton = () => {

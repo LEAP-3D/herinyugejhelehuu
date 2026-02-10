@@ -64,8 +64,10 @@ export default function LobbyPage() {
     if (!mounted) return;
     if (!roomCodeLS || !playerIdLS) return;
 
-    const socket = io(process.env.SOCKET_URL, { transports: ["websocket"] });
-    socketRef.current = socket;
+    const SOCKET_URL =
+      process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:4000";
+
+    const socket = io(SOCKET_URL, { transports: ["websocket"] });
 
     socket.on("connect", () => {
       // ✅ lobby орж ирмэгц joinRoom явуулна
@@ -99,7 +101,7 @@ export default function LobbyPage() {
     );
 
     socket.on("startGame", () => {
-      router.push("/multiplayer/map1");
+      router.push("/Map/map1");
     });
 
     return () => {

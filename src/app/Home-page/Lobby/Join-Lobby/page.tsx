@@ -78,7 +78,7 @@ export default function LobbyPage() {
     };
 
     const onStartGame = () => {
-      router.push("/test-map");
+      router.push("/Map/map1");
     };
 
     const onHeroDenied = (e: unknown) => {

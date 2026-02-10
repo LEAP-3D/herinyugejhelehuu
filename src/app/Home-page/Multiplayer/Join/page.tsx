@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
-import type { RoomState } from "@/types/room";
 import { isRoomState } from "@/types/room";
+
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:4000";
 
 export default function JoinPage() {
   const router = useRouter();
@@ -12,7 +14,6 @@ export default function JoinPage() {
   const [roomCode, setRoomCode] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-  const [, setRoom] = useState<RoomState | null>(null);
 
   const join = () => {
     setErr("");
@@ -26,24 +27,29 @@ export default function JoinPage() {
     setLoading(true);
 
     const playerId = crypto.randomUUID();
-    const socket = io(process.env.SOCKET_URL, { transports: ["websocket"] });
+    const socket = io(SOCKET_URL, { transports: ["websocket"] });
 
-    // ✅ server дээр room байгаа эсэхийг joinRoom-оор шалгана
+    // 👉 join request
     socket.emit("joinRoom", { roomCode: clean, playerId });
 
-    socket.on("roomState", (data: unknown) => {
-      if (isRoomState(data)) setRoom(data as RoomState);
+    // ❌ join амжилтгүй
+    socket.on("joinDenied", (e: { message?: string }) => {
+      setErr(e?.message ?? "Join denied");
+      setLoading(false);
+      socket.disconnect();
     });
 
-    socket.on("roomState", () => {
-      // ✅ зөвшөөрөгдвөл localStorage хадгалаад Lobby руу орно
+    // ✅ join амжилттай (roomState ирвэл)
+    socket.on("roomState", (data: unknown) => {
+      if (!isRoomState(data)) return;
+
+      // localStorage хадгална
       localStorage.setItem("roomCode", clean);
       localStorage.setItem("playerId", playerId);
       localStorage.setItem("isHost", "false");
 
       socket.disconnect();
-      router.push("/Home-page/Multiplayer/Lobby");
-      setLoading(false);
+      router.push("/Home-page/Lobby/Host-Lobby");
     });
   };
 
