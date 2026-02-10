@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { io, type Socket } from "socket.io-client";
 
-// Import images (ХЭВЭЭРЭЭ)
+// Import images
 import player1IdleImg from "@/app/assets/Finn.png";
 import player1RightImg from "@/app/assets/Finn-right.png";
 import player1LeftImg from "@/app/assets/Finn-left.png";
@@ -21,7 +21,7 @@ import doorImg from "@/app/assets/Door.png";
 import deathImg from "@/app/assets/Death.png";
 import dangerButtonImg from "@/app/assets/Button.png";
 
-// Import utilities (ХЭВЭЭРЭЭ)
+// Import utilities
 import { updateCamera, type Camera } from "@/app/utils/camera";
 import { createPlatforms, GAME_CONSTANTS } from "@/app/utils/gameData";
 import {
@@ -78,19 +78,19 @@ const MultiPlayerWorld1 = () => {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const socketRef = useRef<Socket | null>(null);
+  const winTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ✅ Lobby-оос ирсэн localStorage утгууд
+  // ✅ State
   const [playerId, setPlayerId] = useState<string>("");
   const [roomCode, setRoomCode] = useState<string>("");
-
   const [gameState, setGameState] = useState<GameState>({
     players: {},
     keyCollected: false,
     playersAtDoor: [],
     gameStatus: "waiting",
   });
-
   const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 700 });
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [gameImages, setGameImages] = useState<GameImages | null>(null);
@@ -110,7 +110,7 @@ const MultiPlayerWorld1 = () => {
     }
   }, [router]);
 
-  // ✅ Load images (ХЭВЭЭРЭЭ)
+  // ✅ Load images
   useEffect(() => {
     loadAllImages(
       player1IdleImg,
@@ -135,19 +135,20 @@ const MultiPlayerWorld1 = () => {
         setImagesLoaded(true);
       })
       .catch((error: Error) => {
-        console.error("Failed to load images:", error);
+        console.error("❌ Failed to load images:", error);
+        alert("Зураг ачаалахад алдаа гарлаа. Дахин оролдоно уу.");
       });
   }, []);
 
   /**
-   * ✅ SOCKET CONNECTION
+   * ✅ SOCKET CONNECTION (IMPROVED)
    */
   useEffect(() => {
     const SERVER_URL =
       process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
 
-    const rc = localStorage.getItem("roomCode")?.trim() || "";
-    const pid = localStorage.getItem("playerId")?.trim() || "";
+    const rc = localStorage.getItem("roomCode")?.trim();
+    const pid = localStorage.getItem("playerId")?.trim();
 
     if (!rc || !pid) {
       router.push("/Home-page/Multiplayer/Lobby");
@@ -160,6 +161,9 @@ const MultiPlayerWorld1 = () => {
     const s = io(SERVER_URL, {
       transports: ["websocket", "polling"],
       reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
       withCredentials: true,
     });
 
@@ -167,6 +171,7 @@ const MultiPlayerWorld1 = () => {
 
     const resetClientState = () => {
       setIsConnected(false);
+      setIsReconnecting(false);
       setGameState({
         players: {},
         keyCollected: false,
@@ -178,40 +183,84 @@ const MultiPlayerWorld1 = () => {
     const onState = (state: GameState) => {
       setGameState(state);
 
+      // ✅ Clear existing timer
+      if (winTimerRef.current) {
+        clearTimeout(winTimerRef.current);
+        winTimerRef.current = null;
+      }
+
+      // ✅ Handle win condition
       if (state.gameStatus === "won") {
-        setTimeout(() => {
+        winTimerRef.current = setTimeout(() => {
           const nextWorld = getNextWorld();
-          if (nextWorld) router.push(`/multiplayer/world${nextWorld}`);
-          else router.push("/");
+          if (nextWorld) {
+            router.push(`/multiplayer/world${nextWorld}`);
+          } else {
+            router.push("/");
+          }
         }, 3000);
       }
     };
 
+    // ✅ Socket event handlers
     s.on("connect", () => {
+      console.log("✅ Connected to server");
       setIsConnected(true);
-      // ✅ Now properly typed - no error!
+      setIsReconnecting(false);
       s.emit("joinRoom", { roomCode: rc, playerId: pid });
     });
 
     s.on("connect_error", (e) => {
-      console.log("❌ connect_error:", e?.message);
+      console.error("❌ Connection error:", e?.message);
     });
 
-    s.on("disconnect", () => resetClientState());
+    s.on("disconnect", (reason) => {
+      console.log("🔌 Disconnected:", reason);
+      resetClientState();
+    });
 
-    // ✅ backend-ээс аль нь ирэхийг нь хоёуланг нь сонсоно
-    s.on("gameState", onState);
-    s.on("roomState", onState);
+    s.on("reconnect_attempt", (attemptNumber) => {
+      console.log(`🔄 Reconnection attempt ${attemptNumber}...`);
+      setIsReconnecting(true);
+    });
 
-    // Lobby-оос deny ирвэл буцаана
-    s.on("joinDenied", () => {
+    s.on("reconnect", (attemptNumber) => {
+      console.log(`✅ Reconnected after ${attemptNumber} attempts`);
+      setIsReconnecting(false);
+      s.emit("joinRoom", { roomCode: rc, playerId: pid });
+    });
+
+    s.on("reconnect_failed", () => {
+      console.error("❌ Reconnection failed");
+      setIsReconnecting(false);
+      alert("Серверт холбогдож чадсангүй. Дахин оролдоно уу.");
       router.push("/Home-page/Multiplayer/Lobby");
     });
 
+    s.on("gameState", onState);
+    s.on("roomState", onState);
+
+    s.on("joinDenied", (data) => {
+      console.warn("❌ Join denied:", data);
+      alert(
+        "Өрөөнд нэвтрэх боломжгүй. Өрөө дүүрсэн эсвэл тоглоом эхэлсэн байна.",
+      );
+      router.push("/Home-page/Multiplayer/Lobby");
+    });
+
+    // ✅ Cleanup
     return () => {
+      if (winTimerRef.current) {
+        clearTimeout(winTimerRef.current);
+        winTimerRef.current = null;
+      }
+
       s.off("connect");
       s.off("connect_error");
       s.off("disconnect");
+      s.off("reconnect_attempt");
+      s.off("reconnect");
+      s.off("reconnect_failed");
       s.off("gameState", onState);
       s.off("roomState", onState);
       s.off("joinDenied");
@@ -220,7 +269,7 @@ const MultiPlayerWorld1 = () => {
     };
   }, [router]);
 
-  // ✅ Resize
+  // ✅ Resize handler
   useEffect(() => {
     const handleResize = () => {
       setCanvasSize({ width: window.innerWidth, height: window.innerHeight });
@@ -230,7 +279,7 @@ const MultiPlayerWorld1 = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // ✅ Send input to server (join хийсэн үед)
+  // ✅ Send input to server
   useEffect(() => {
     const s = socketRef.current;
     if (!s || !s.connected || !roomCode) return;
@@ -258,7 +307,7 @@ const MultiPlayerWorld1 = () => {
     };
   }, []);
 
-  // ✅ Game rendering loop (ХЭВЭЭРЭЭ)
+  // ✅ Game rendering loop
   const gameLoop = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !gameImages) return;
@@ -373,13 +422,13 @@ const MultiPlayerWorld1 = () => {
     return () => clearInterval(interval);
   }, [gameLoop, imagesLoaded]);
 
-  // Connecting screen
-  if (!isConnected) {
+  // ✅ Loading screen
+  if (!imagesLoaded) {
     return (
       <div className="w-screen h-screen flex items-center justify-center bg-linear-to-b from-slate-800 to-slate-900">
         <div className="text-center">
           <div className="text-4xl font-bold text-white mb-4">
-            Connecting to server...
+            Loading World 1...
           </div>
           <div className="w-48 h-2 bg-white/30 rounded-full overflow-hidden">
             <div className="h-full bg-yellow-500 animate-pulse"></div>
@@ -389,7 +438,23 @@ const MultiPlayerWorld1 = () => {
     );
   }
 
-  // Game screen
+  // ✅ Connecting screen
+  if (!isConnected) {
+    return (
+      <div className="w-screen h-screen flex items-center justify-center bg-linear-to-b from-slate-800 to-slate-900">
+        <div className="text-center">
+          <div className="text-4xl font-bold text-white mb-4">
+            {isReconnecting ? "Reconnecting..." : "Connecting to server..."}
+          </div>
+          <div className="w-48 h-2 bg-white/30 rounded-full overflow-hidden">
+            <div className="h-full bg-yellow-500 animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Game screen
   return (
     <div className="w-screen h-screen overflow-hidden bg-slate-900">
       <canvas
@@ -404,6 +469,13 @@ const MultiPlayerWorld1 = () => {
           <p className="text-white text-lg">
             Room: <span className="font-bold text-yellow-400">{roomCode}</span>
           </p>
+        </div>
+      )}
+
+      {/* ✅ Reconnecting indicator */}
+      {isReconnecting && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-orange-600 text-white px-6 py-3 rounded-lg animate-pulse">
+          🔄 Reconnecting...
         </div>
       )}
 
