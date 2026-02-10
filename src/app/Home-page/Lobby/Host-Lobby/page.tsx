@@ -1,152 +1,93 @@
-"use client";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { io, type Socket } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 
-// Import images
-import player1IdleImg from "@/app/assets/Finn.png";
-import player1RightImg from "@/app/assets/Finn-right.png";
-import player1LeftImg from "@/app/assets/Finn-left.png";
+import playerIdleImg from "@/app/assets/Finn.png";
+import playerWalk1Img from "@/app/assets/Finn-right.png";
+import playerWalk2Img from "@/app/assets/Finn-left.png";
 import player2IdleImg from "@/app/assets/Iceking.png";
-import player2RightImg from "@/app/assets/Iceking-right.png";
-import player2LeftImg from "@/app/assets/Ice-king-left.png";
-import player3IdleImg from "@/app/assets/Jakeidle.png";
+import player2Walk1Img from "@/app/assets/Iceking-right.png";
+import player2Walk2Img from "@/app/assets/Ice-king-left.png";
+import player3IdleImg from "@/app/assets/JakeidIe.png";
 import player3RightImg from "@/app/assets/Jake-right.png";
 import player3LeftImg from "@/app/assets/Jake-left.png";
 import player4IdleImg from "@/app/assets/BMOidle.png";
 import player4RightImg from "@/app/assets/BMO-right.png";
 import player4LeftImg from "@/app/assets/BMO-left.png";
-import keyImg from "@/app/assets/Keys.png";
 import doorImg from "@/app/assets/Door.png";
 import deathImg from "@/app/assets/Death.png";
-import dangerButtonImg from "@/app/assets/Button.png";
-
-// Import utilities
-import { updateCamera, type Camera } from "@/app/utils/camera";
-import { createPlatforms, GAME_CONSTANTS } from "@/app/utils/gameData";
+import keyImg from "@/app/assets/Keys.png"
 import {
-  loadAllImagesWorld2 as loadAllImages,
-  getPlayerSprite,
-  type GameImages,
-} from "@/app/utils/imageLoader";
-import {
-  createKeyboardHandlers,
-  getPlayerInput,
-} from "@/app/utils/inputHandler";
+  GameState,
+  JoinDeniedPayload,
+  JoinSuccessPayload,
+} from "@/app/utils/typesWorld1";
+import { CameraController } from "@/app/utils/cameraWorld1";
+import { GameData } from "@/app/utils/gameDataWorld1";
+import { ImageLoader, GameImages } from "@/app/utils/imageLoaderWorld1";
+import { InputHandler } from "@/app/utils/inputHandlerWorld1";
+import  {PhysicsEngine}  from "@/app/utils/physicsWorld1";
+import { Renderer } from "@/app/utils/renderWorld1";
 
-import {
-  drawKey,
-  drawDoor,
-  drawUIWorld2 as drawUI,
-  drawWaitingScreen,
-  drawWinScreen,
-  drawDeathScreen,
-} from "@/app/utils/SharedRendering";
-import {
-  drawBackgroundWorld1 as drawBackground,
-  drawGroundWorld1 as drawGround,
-  drawPlatforms,
-} from "@/app/utils/World1Rendering";
-
-import { canAccessWorld, getNextWorld } from "@/app/utils/Progresstracker";
-
-interface Player {
-  id: string;
-  playerId: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  width: number;
-  height: number;
-  onGround: boolean;
-  animFrame: number;
-  facingRight: boolean;
-  color: string;
-  dead: boolean;
-  standingOnPlayer: string | null;
-}
-
-interface GameState {
-  players: Record<string, Player>;
-  keyCollected: boolean;
-  playersAtDoor: string[];
-  gameStatus: "waiting" | "playing" | "won" | "dead";
-}
-
-const MultiPlayerWorld1 = () => {
+const World1Multiplayer = () => {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const socketRef = useRef<Socket | null>(null);
-  const winTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // ✅ State
-  const [playerId, setPlayerId] = useState<string>("");
-  const [roomCode, setRoomCode] = useState<string>("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Multiplayer state
+  const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);  
+  const [connectionError, setConnectionError] = useState("");
+  const [roomCode, setRoomCode] = useState("");
   const [gameState, setGameState] = useState<GameState>({
     players: {},
     keyCollected: false,
     playersAtDoor: [],
     gameStatus: "waiting",
   });
-  const [isConnected, setIsConnected] = useState(false);
-  const [isReconnecting, setIsReconnecting] = useState(false);
-  const [connectionError, setConnectionError] = useState<string>("");
+
+  // Local game state
+  const [hasKey, setHasKey] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 700 });
   const [imagesLoaded, setImagesLoaded] = useState(false);
-  const [gameImages, setGameImages] = useState<GameImages | null>(null);
 
-  const keysPressed = useRef<Set<string>>(new Set());
-  const animTimer = useRef(0);
-  const cameraRef = useRef<Camera>({ x: 0, y: 0 });
+  // Refs
+  const socketRef = useRef<Socket | null>(null);
+  const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deathTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gameImages = useRef<GameImages | null>(null);
 
-  const groundY = canvasSize.height - GAME_CONSTANTS.GROUND_OFFSET;
-  const platformsRef = useRef(createPlatforms(groundY));
 
-  // ✅ Access check (World 1)
-  useEffect(() => {
-    if (!canAccessWorld(1)) {
-      alert("Та эхлээд өмнөх world-оо дуусгана уу!");
-      router.push("/");
-    }
-  }, [router]);
+  // Game systems
+  const cameraController = useRef(new CameraController());
+  const gameData = useRef(new GameData(canvasSize.height));
+  const inputHandler = useRef(new InputHandler());
+  const physicsEngine = useRef(new PhysicsEngine(inputHandler.current));
+  const renderer = useRef<Renderer | null>(null);
 
-  // ✅ Load images
-  useEffect(() => {
-    loadAllImages(
-      player1IdleImg,
-      player1RightImg,
-      player1LeftImg,
-      player2IdleImg,
-      player2RightImg,
-      player2LeftImg,
-      player3IdleImg,
-      player3RightImg,
-      player3LeftImg,
-      player4IdleImg,
-      player4RightImg,
-      player4LeftImg,
-      keyImg,
-      doorImg,
-      deathImg,
-      dangerButtonImg,
-    )
-      .then((images: GameImages) => {
-        setGameImages(images);
-        setImagesLoaded(true);
-      })
-      .catch((error: Error) => {
-        console.error("❌ Failed to load images:", error);
-        alert("Зураг ачаалахад алдаа гарлаа. Дахин оролдоно уу.");
-      });
-  }, []);
+  // Game objects
+  const platformsRef = useRef(gameData.current.getPlatforms());
+  const movingPlatformsRef = useRef(gameData.current.getMovingPlatforms());
+  const fallingPlatformsRef = useRef(gameData.current.getFallingPlatforms());
+  const cloudsRef = useRef(gameData.current.getClouds());
+  const keyRef = useRef(gameData.current.getKey());
+  const doorRef = useRef(gameData.current.getDoor());
+
+  const groundY = gameData.current.getGroundY();
+
+  // Helper: Get next world
+  const getNextWorld = () => {
+    const currentWorld = 1;
+    const maxWorlds = 3;
+    return currentWorld < maxWorlds ? currentWorld + 1 : null;
+  };
 
   /**
-   * ✅ SOCKET CONNECTION (FIXED)
+   * ✅ SOCKET CONNECTION
    */
   useEffect(() => {
     const SERVER_URL =
-      process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001";
+      process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
     const maxReconnectAttempts = 5;
     const reconnectAttempts = { current: 0 };
 
@@ -160,7 +101,7 @@ const MultiPlayerWorld1 = () => {
     }
 
     setRoomCode(rc);
-    setPlayerId(pid);
+
 
     console.log("🔌 Attempting to connect to:", SERVER_URL);
     console.log("📝 Room Code:", rc, "| Player ID:", pid);
@@ -191,8 +132,15 @@ const MultiPlayerWorld1 = () => {
     };
 
     const onState = (state: GameState) => {
+      console.log("📥 Received game state:", {
+        playerCount: Object.keys(state.players).length,
+        players: state.players,
+        status: state.gameStatus,
+      });
+
       setGameState(state);
       setConnectionError("");
+      setHasKey(state.keyCollected);
 
       if (winTimerRef.current) {
         clearTimeout(winTimerRef.current);
@@ -212,15 +160,17 @@ const MultiPlayerWorld1 = () => {
     };
 
     s.on("connect", () => {
-      console.log("✅ Connected to server");
+      console.log("✅ Connected to server with ID:", s.id);
       setIsConnected(true);
       setIsReconnecting(false);
       setConnectionError("");
       reconnectAttempts.current = 0;
+
+      console.log("📤 Emitting joinRoom:", { roomCode: rc, playerId: pid });
       s.emit("joinRoom", { roomCode: rc, playerId: pid });
     });
 
-    s.on("connect_error", (error) => {
+    s.on("connect_error", (error: Error) => {
       console.error("❌ Connection error:", error);
       reconnectAttempts.current++;
 
@@ -239,7 +189,7 @@ const MultiPlayerWorld1 = () => {
       setConnectionError(userMessage);
     });
 
-    s.on("disconnect", (reason) => {
+    s.on("disconnect", (reason: string) => {
       console.log("🔌 Disconnected:", reason);
       resetClientState();
       if (reason === "io server disconnect") {
@@ -247,14 +197,14 @@ const MultiPlayerWorld1 = () => {
       }
     });
 
-    s.on("reconnect_attempt", (attemptNumber) => {
+    s.on("reconnect_attempt", (attemptNumber: number) => {
       setIsReconnecting(true);
       setConnectionError(
-        `Reconnecting... (${attemptNumber}/${maxReconnectAttempts})`,
+        `Reconnecting... (${attemptNumber}/${maxReconnectAttempts})`
       );
     });
 
-    s.on("reconnect", (attemptNumber) => {
+    s.on("reconnect", (attemptNumber: number) => {
       console.log(`✅ Reconnected after ${attemptNumber} attempts`);
       setIsReconnecting(false);
       setConnectionError("");
@@ -281,10 +231,14 @@ const MultiPlayerWorld1 = () => {
     s.on("gameState", onState);
     s.on("roomState", onState);
 
-    s.on("joinDenied", (data: { message?: string }) => {
+    s.on("joinDenied", (data: JoinDeniedPayload) => {
+      console.error("❌ Join denied:", data.message);
       alert(data.message || "Өрөөнд нэвтрэх боломжгүй");
-      console.log(data.message);
-      // router.push("/Home-page/Multiplayer/Lobby");
+      router.push("/Home-page/Multiplayer/Lobby");
+    });
+
+    s.on("joinSuccess", (data: JoinSuccessPayload) => {
+      console.log("✅ Successfully joined room:", data);
     });
 
     return () => {
@@ -301,224 +255,216 @@ const MultiPlayerWorld1 = () => {
       s.off("gameState");
       s.off("roomState");
       s.off("joinDenied");
+      s.off("joinSuccess");
       s.disconnect();
     };
   }, [router]);
 
-  // ✅ Resize handler
+  // Handle window resize
   useEffect(() => {
     const handleResize = () => {
-      setCanvasSize({ width: window.innerWidth, height: window.innerHeight });
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      setCanvasSize({ width, height });
+      gameData.current = new GameData(height);
+      if (renderer.current) {
+        renderer.current.updateCanvasSize(
+          width,
+          height,
+          gameData.current.getGroundY()
+        );
+      }
     };
+
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // ✅ Send input to server
+  // Load images
   useEffect(() => {
-    const s = socketRef.current;
-    if (!s?.connected || !roomCode) return;
-
-    const interval = setInterval(() => {
-      if (s.connected) {
-        const input = getPlayerInput(keysPressed.current);
-        s.emit("playerInput", input);
-      }
-    }, 1000 / 60);
-
-    return () => clearInterval(interval);
-  }, [roomCode, isConnected]);
-
-  // ✅ Keyboard handling
-  useEffect(() => {
-    const { handleKeyDown, handleKeyUp } = createKeyboardHandlers(
-      keysPressed.current,
-    );
-
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
+    const loader = new ImageLoader();
+    loader
+      .loadImages({
+        playerIdle: playerIdleImg,
+        playerWalk1: playerWalk1Img,
+        playerWalk2: playerWalk2Img,
+        player2Idle: player2IdleImg,
+        player2Walk1: player2Walk1Img,
+        player2Walk2: player2Walk2Img,
+        player3Idle: player3IdleImg,
+        player3Right: player3RightImg,
+        player3Left: player3LeftImg,
+        player4Idle: player4IdleImg,
+        player4Right: player4RightImg,
+        player4Left: player4LeftImg,
+        key: keyImg,
+        door: doorImg,
+        death: deathImg,
+      })
+      .then((images: GameImages) => {
+        gameImages.current = images;
+        setImagesLoaded(true);
+      });
   }, []);
 
-  // ✅ Game rendering loop
-  const gameLoop = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !gameImages) return;
-    const ctx = canvas.getContext("2d");
+  // Initialize renderer
+  useEffect(() => {
+    if (!canvasRef.current || !imagesLoaded) return;
+    const ctx = canvasRef.current.getContext("2d");
     if (!ctx) return;
 
-    animTimer.current++;
+    renderer.current = new Renderer(
+      ctx,
+      canvasSize.width,
+      canvasSize.height,
+      groundY
+    );
+  }, [canvasSize, groundY, imagesLoaded]);
+
+  // Initialize input handler
+  useEffect(() => {
+    const handler = inputHandler.current;
+    handler.init();
+    return () => {
+      handler.cleanup();
+    };
+  }, []);
+  /**
+   * ✅ RENDER LOOP
+   */
+  const gameLoop = useCallback(() => {
+    if (!renderer.current || !gameImages.current) return;
 
     const players = Object.values(gameState.players);
     const platforms = platformsRef.current;
+    const movingPlatforms = movingPlatformsRef.current;
+    const fallingPlatforms = fallingPlatformsRef.current;
+    const clouds = cloudsRef.current;
+    const key = keyRef.current;
+    const door = doorRef.current;
 
-    if (playerId && gameState.players[playerId]) {
-      const myPlayer = gameState.players[playerId];
-      cameraRef.current = updateCamera(
-        cameraRef.current,
-        myPlayer,
-        canvasSize.width,
-      );
+    // Update key collected state
+    key.collected = gameState.keyCollected;
+
+    // Update local animations
+    physicsEngine.current.incrementAnimTimer();
+    physicsEngine.current.updateClouds(clouds);
+    physicsEngine.current.updateMovingPlatforms(movingPlatforms);
+    physicsEngine.current.updateFallingPlatforms(fallingPlatforms);
+
+    // Update camera to follow players
+    if (players.length > 0) {
+      cameraController.current.updateCamera(players, canvasSize.width);
     }
 
-    drawBackground(ctx, canvasSize.width, canvasSize.height);
-
-    ctx.save();
-    ctx.translate(-cameraRef.current.x, 0);
-
-    drawGround(ctx, canvasSize.height);
-    drawPlatforms(ctx, platforms);
-
-    if (!gameState.keyCollected && gameImages.key) {
-      const keyX = GAME_CONSTANTS.KEY_POSITION.x;
-      const keyY = groundY + GAME_CONSTANTS.KEY_POSITION.y;
-      const keyItem = {
-        x: keyX,
-        y: keyY,
-        width: 40,
-        height: 40,
-        collected: false,
-      };
-      drawKey(ctx, keyItem, gameImages.key, animTimer.current);
-    }
-
-    if (gameImages.door) {
-      const doorX = GAME_CONSTANTS.DOOR_POSITION.x;
-      const doorY = groundY + GAME_CONSTANTS.DOOR_POSITION.y;
-      const doorObject = { x: doorX, y: doorY, width: 60, height: 80 };
-      drawDoor(ctx, doorObject, gameImages.door, gameState.keyCollected);
-    }
-
-    players.forEach((p) => {
-      if (p.dead) return;
-
-      const img = getPlayerSprite(
-        gameImages,
-        p.playerId,
-        p.animFrame,
-        p.facingRight,
-      );
-
-      if (!img || !img.complete) return;
-
-      ctx.save();
-      if (p.id === playerId) {
-        ctx.shadowColor = "#FFD700";
-        ctx.shadowBlur = 15;
-      } else {
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 8;
-      }
-
-      ctx.drawImage(img, p.x, p.y, p.width, p.height);
-      ctx.restore();
-
-      ctx.fillStyle = p.id === playerId ? "#FFD700" : p.color;
-      ctx.font = "bold 14px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText(`P${p.playerId}`, p.x + p.width / 2, p.y - 10);
-    });
-
-    ctx.restore();
-
-    drawUI(
-      ctx,
-      players.length,
-      gameState.keyCollected,
-      isConnected,
-      canvasSize.height,
+    // Render everything
+    const camera = cameraController.current.getCamera();
+    renderer.current.renderBackground();
+    renderer.current.renderSun();
+    renderer.current.renderClouds(clouds, camera);
+    renderer.current.renderGround(camera);
+    renderer.current.renderPlatforms(platforms, camera);
+    renderer.current.renderMovingPlatforms(movingPlatforms, camera);
+    renderer.current.renderFallingPlatforms(fallingPlatforms, camera);
+    renderer.current.renderDoor(door, key.collected, gameImages.current, camera);
+    renderer.current.renderKey(
+      key,
+      physicsEngine.current.getAnimTimer(),
+      gameImages.current,
+      camera
     );
+    renderer.current.renderPlayers(players, gameImages.current, camera);
+    renderer.current.renderHUD(hasKey, gameState.playersAtDoor.length);
+    renderer.current.renderControls();
 
-    if (gameState.gameStatus === "waiting") {
-      drawWaitingScreen(
-        ctx,
-        canvasSize.width,
-        canvasSize.height,
-        players.length,
-      );
-    } else if (gameState.gameStatus === "won") {
-      drawWinScreen(ctx, canvasSize.width, canvasSize.height);
-    } else if (gameState.gameStatus === "dead") {
-      drawDeathScreen(
-        ctx,
-        canvasSize.width,
-        canvasSize.height,
-        gameImages.death,
-      );
+    if (gameState.gameStatus === "dead") {
+      renderer.current.renderDeathScreen(gameImages.current);
     }
-  }, [gameState, playerId, canvasSize, isConnected, groundY, gameImages]);
+  }, [gameState, canvasSize, hasKey]);
 
+  // Game loop
   useEffect(() => {
     if (!imagesLoaded) return;
+
     const interval = setInterval(gameLoop, 1000 / 60);
     return () => clearInterval(interval);
   }, [gameLoop, imagesLoaded]);
 
-  // ✅ Loading screen
+  // Cleanup death timer
+ useEffect(() => {
+  return () => {
+    if (deathTimer.current) {
+      clearTimeout(deathTimer.current);
+      deathTimer.current = null; 
+    }
+  };
+}, []);
+  /**
+   * ✅ LOADING SCREEN
+   */
   if (!imagesLoaded) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900">
+      <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-b from-blue-400 to-blue-200">
         <div className="text-center">
-          <div className="text-4xl font-bold text-white mb-4">
-            Loading World 1...
-          </div>
+          <div className="text-4xl font-bold text-white mb-4">Loading...</div>
           <div className="w-48 h-2 bg-white/30 rounded-full overflow-hidden">
-            <div className="h-full bg-yellow-500 animate-pulse w-full"></div>
+            <div className="h-full bg-white animate-pulse"></div>
           </div>
         </div>
       </div>
     );
   }
 
-  // ✅ Connecting screen
-  if (!isConnected) {
+  /**
+   * ✅ CONNECTION ERROR SCREEN
+   */
+  if (connectionError && !isConnected) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900">
-        <div className="text-center max-w-md px-4">
-          <div className="text-4xl font-bold text-white mb-4">
-            {isReconnecting ? "🔄 Reconnecting..." : "🔌 Connecting..."}
-          </div>
-
-          <div className="w-48 h-2 bg-white/30 rounded-full overflow-hidden mx-auto mb-4">
-            <div className="h-full bg-yellow-500 animate-pulse w-full"></div>
-          </div>
-
-          {connectionError && (
-            <div className="mt-4 p-4 bg-red-600/20 border border-red-500 rounded-lg">
-              <p className="text-white text-sm mb-3">{connectionError}</p>
-              <p className="text-gray-400 text-xs mb-3">
-                Backend:{" "}
-                {process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}
-              </p>
-              <div className="flex gap-2 justify-center">
-                <button
-                  onClick={() => window.location.reload()}
-                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white text-sm rounded transition-all"
-                >
-                  Retry
-                </button>
-                <button
-                  onClick={() => router.push("/Home-page/Multiplayer/Lobby")}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm rounded transition-all"
-                >
-                  Exit
-                </button>
-              </div>
-            </div>
-          )}
+      <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-b from-red-400 to-red-200">
+        <div className="text-center bg-white/90 p-8 rounded-xl shadow-2xl max-w-md">
+          <div className="text-6xl mb-4">❌</div>
+          <h2 className="text-2xl font-bold text-red-600 mb-4">
+            Connection Error
+          </h2>
+          <p className="text-gray-700 mb-6">{connectionError}</p>
+          <button
+            onClick={() => router.push("/Home-page/Multiplayer/Lobby")}
+            className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-all"
+          >
+            Back to Lobby
+          </button>
         </div>
       </div>
     );
   }
 
-  // ✅ Game screen
+  /**
+   * ✅ WAITING FOR PLAYERS
+   */
+  if (gameState.gameStatus === "waiting") {
+    return (
+      <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-b from-blue-400 to-blue-200">
+        <div className="text-center bg-white/90 p-8 rounded-xl shadow-2xl">
+          <div className="text-6xl mb-4">⏳</div>
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">
+            Waiting for players...
+          </h2>
+          <p className="text-xl text-gray-600 mb-2">
+            Room Code: <span className="font-bold">{roomCode}</span>
+          </p>
+          <p className="text-lg text-gray-600">
+            Players: {Object.keys(gameState.players).length} / 4
+          </p>
+        </div>
+      </div>
+    );
+  }
+  /**
+   * ✅ GAME CANVAS
+   */
   return (
-    <div className="w-screen h-screen overflow-hidden bg-slate-900">
+    <div ref={containerRef} className="w-screen h-screen overflow-hidden">
       <canvas
         ref={canvasRef}
         width={canvasSize.width}
@@ -526,37 +472,25 @@ const MultiPlayerWorld1 = () => {
         className="block"
       />
 
-      {roomCode && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-black/80 px-6 py-3 rounded-lg">
-          <p className="text-white text-lg">
-            Room: <span className="font-bold text-yellow-400">{roomCode}</span>
-          </p>
-        </div>
-      )}
-
-      <div className="fixed top-4 left-4 flex items-center gap-2 bg-black/80 px-3 py-1 rounded text-xs">
-        <div
-          className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`}
-        ></div>
-        <span className="text-white">
-          {isConnected ? "Connected" : "Disconnected"}
-        </span>
-      </div>
-
+      {/* Connection Status */}
       {isReconnecting && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-4 py-2 rounded text-sm">
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-6 py-3 rounded-full shadow-lg">
           🔄 Reconnecting...
         </div>
       )}
 
-      <button
-        onClick={() => router.push("/Home-page/Multiplayer/Lobby")}
-        className="fixed top-4 right-4 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded transition-all"
-      >
-        Exit
-      </button>
+      {/* Win Screen */}
+      {gameState.gameStatus === "won" && (
+        <div className="fixed inset-0 flex flex-col items-center justify-center bg-black/70">
+          <h2 className="text-6xl font-bold text-yellow-400 mb-6">
+            🎉 All 4 Players Won!
+          </h2>
+          <p className="text-white text-2xl mb-8">Epic teamwork!</p>
+          <p className="text-white text-lg">Moving to next world...</p>
+        </div>
+      )}
     </div>
   );
 };
 
-export default MultiPlayerWorld1;
+export default World1Multiplayer;

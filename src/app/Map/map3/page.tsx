@@ -28,12 +28,12 @@ import {
   createPlatformsWorld3,
   createDangerButtonsWorld3,
   GAME_CONSTANTS,
-} from "@/app/utils/gameData";
+} from "@/app/utils/gameDataWorld1";
 import {
   loadAllImagesWorld3 as loadAllImages,
   getPlayerSprite,
   type GameImages,
-} from "@/app/utils/imageLoader";
+} from "@/app/utils/imageLoaderWorld1";
 import {
   createKeyboardHandlers,
   getPlayerInput,
