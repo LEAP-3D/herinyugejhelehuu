@@ -50,6 +50,7 @@ import {
 
 import { canAccessWorld, getNextWorld } from "@/app/utils/Progresstracker";
 
+// ✅ PROPERLY TYPED INTERFACES
 interface Player {
   id: string;
   playerId: number;
@@ -74,6 +75,17 @@ interface GameState {
   gameStatus: "waiting" | "playing" | "won" | "dead";
 }
 
+// ✅ Socket event payloads (properly typed)
+interface JoinSuccessPayload {
+  roomCode: string;
+  playerId: string;
+  message?: string;
+}
+
+interface JoinDeniedPayload {
+  message?: string;
+}
+
 const MultiPlayerWorld1 = () => {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -91,6 +103,7 @@ const MultiPlayerWorld1 = () => {
   });
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState<string>("");
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 700 });
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [gameImages, setGameImages] = useState<GameImages | null>(null);
@@ -133,6 +146,7 @@ const MultiPlayerWorld1 = () => {
       .then((images: GameImages) => {
         setGameImages(images);
         setImagesLoaded(true);
+        console.log("✅ All images loaded successfully");
       })
       .catch((error: Error) => {
         console.error("❌ Failed to load images:", error);
@@ -141,16 +155,19 @@ const MultiPlayerWorld1 = () => {
   }, []);
 
   /**
-   * ✅ SOCKET CONNECTION (IMPROVED)
+   * ✅ SOCKET CONNECTION (PROPERLY TYPED)
    */
   useEffect(() => {
     const SERVER_URL =
       process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+    const maxReconnectAttempts = 5;
+    const reconnectAttempts = { current: 0 };
 
     const rc = localStorage.getItem("roomCode")?.trim();
     const pid = localStorage.getItem("playerId")?.trim();
 
     if (!rc || !pid) {
+      console.warn("⚠️ Missing room code or player ID");
       router.push("/Home-page/Multiplayer/Lobby");
       return;
     }
@@ -158,13 +175,19 @@ const MultiPlayerWorld1 = () => {
     setRoomCode(rc);
     setPlayerId(pid);
 
+    console.log("🔌 Attempting to connect to:", SERVER_URL);
+    console.log("📝 Room Code:", rc, "| Player ID:", pid);
+
     const s = io(SERVER_URL, {
       transports: ["websocket", "polling"],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
+      timeout: 10000,
       withCredentials: true,
+      autoConnect: true,
+      forceNew: true,
     });
 
     socketRef.current = s;
@@ -181,15 +204,20 @@ const MultiPlayerWorld1 = () => {
     };
 
     const onState = (state: GameState) => {
-      setGameState(state);
+      console.log("📥 Received game state:", {
+        playerCount: Object.keys(state.players).length,
+        players: state.players,
+        status: state.gameStatus,
+      });
 
-      // ✅ Clear existing timer
+      setGameState(state);
+      setConnectionError("");
+
       if (winTimerRef.current) {
         clearTimeout(winTimerRef.current);
         winTimerRef.current = null;
       }
 
-      // ✅ Handle win condition
       if (state.gameStatus === "won") {
         winTimerRef.current = setTimeout(() => {
           const nextWorld = getNextWorld();
@@ -202,70 +230,105 @@ const MultiPlayerWorld1 = () => {
       }
     };
 
-    // ✅ Socket event handlers
     s.on("connect", () => {
-      console.log("✅ Connected to server");
+      console.log("✅ Connected to server with ID:", s.id);
       setIsConnected(true);
       setIsReconnecting(false);
+      setConnectionError("");
+      reconnectAttempts.current = 0;
+
+      console.log("📤 Emitting joinRoom:", { roomCode: rc, playerId: pid });
       s.emit("joinRoom", { roomCode: rc, playerId: pid });
     });
 
-    s.on("connect_error", (e) => {
-      console.error("❌ Connection error:", e?.message);
+    s.on("connect_error", (error: Error) => {
+      console.error("❌ Connection error:", error);
+      reconnectAttempts.current++;
+
+      let userMessage = "Unable to connect to server";
+      if (error.message?.includes("xhr poll error")) {
+        userMessage = `Backend server not responding on ${SERVER_URL}`;
+      } else if (error.message?.includes("websocket error")) {
+        userMessage = "WebSocket connection failed - Check CORS";
+      } else if (error.message?.includes("timeout")) {
+        userMessage = "Connection timeout";
+      }
+
+      if (reconnectAttempts.current <= maxReconnectAttempts) {
+        userMessage += ` (${reconnectAttempts.current}/${maxReconnectAttempts})`;
+      }
+      setConnectionError(userMessage);
     });
 
-    s.on("disconnect", (reason) => {
+    s.on("disconnect", (reason: string) => {
       console.log("🔌 Disconnected:", reason);
       resetClientState();
+      if (reason === "io server disconnect") {
+        s.connect();
+      }
     });
 
-    s.on("reconnect_attempt", (attemptNumber) => {
-      console.log(`🔄 Reconnection attempt ${attemptNumber}...`);
+    s.on("reconnect_attempt", (attemptNumber: number) => {
       setIsReconnecting(true);
+      setConnectionError(
+        `Reconnecting... (${attemptNumber}/${maxReconnectAttempts})`,
+      );
     });
 
-    s.on("reconnect", (attemptNumber) => {
+    s.on("reconnect", (attemptNumber: number) => {
       console.log(`✅ Reconnected after ${attemptNumber} attempts`);
       setIsReconnecting(false);
+      setConnectionError("");
+      reconnectAttempts.current = 0;
       s.emit("joinRoom", { roomCode: rc, playerId: pid });
     });
 
     s.on("reconnect_failed", () => {
       console.error("❌ Reconnection failed");
       setIsReconnecting(false);
-      alert("Серверт холбогдож чадсангүй. Дахин оролдоно уу.");
-      router.push("/Home-page/Multiplayer/Lobby");
+      setConnectionError(`Failed to reconnect`);
+
+      setTimeout(() => {
+        if (confirm("Серверт холбогдож чадсангүй. Lobby руу буцах уу?")) {
+          router.push("/Home-page/Multiplayer/Lobby");
+        }
+      }, 1000);
+    });
+
+    s.on("error", (error: Error) => {
+      console.error("❌ Socket error:", error);
     });
 
     s.on("gameState", onState);
     s.on("roomState", onState);
 
-    s.on("joinDenied", (data) => {
-      console.warn("❌ Join denied:", data);
-      alert(
-        "Өрөөнд нэвтрэх боломжгүй. Өрөө дүүрсэн эсвэл тоглоом эхэлсэн байна.",
-      );
+    // ✅ Properly typed event handlers
+    s.on("joinDenied", (data: JoinDeniedPayload) => {
+      console.error("❌ Join denied:", data.message);
+      alert(data.message || "Өрөөнд нэвтрэх боломжгүй");
       router.push("/Home-page/Multiplayer/Lobby");
     });
 
-    // ✅ Cleanup
+    s.on("joinSuccess", (data: JoinSuccessPayload) => {
+      console.log("✅ Successfully joined room:", data);
+    });
+
     return () => {
       if (winTimerRef.current) {
         clearTimeout(winTimerRef.current);
-        winTimerRef.current = null;
       }
-
       s.off("connect");
       s.off("connect_error");
       s.off("disconnect");
       s.off("reconnect_attempt");
       s.off("reconnect");
       s.off("reconnect_failed");
-      s.off("gameState", onState);
-      s.off("roomState", onState);
+      s.off("error");
+      s.off("gameState");
+      s.off("roomState");
       s.off("joinDenied");
+      s.off("joinSuccess");
       s.disconnect();
-      socketRef.current = null;
     };
   }, [router]);
 
@@ -282,15 +345,17 @@ const MultiPlayerWorld1 = () => {
   // ✅ Send input to server
   useEffect(() => {
     const s = socketRef.current;
-    if (!s || !s.connected || !roomCode) return;
+    if (!s?.connected || !roomCode) return;
 
     const interval = setInterval(() => {
-      const input = getPlayerInput(keysPressed.current);
-      s.emit("playerInput", input);
+      if (s.connected) {
+        const input = getPlayerInput(keysPressed.current);
+        s.emit("playerInput", input);
+      }
     }, 1000 / 60);
 
     return () => clearInterval(interval);
-  }, [roomCode]);
+  }, [roomCode, isConnected]);
 
   // ✅ Keyboard handling
   useEffect(() => {
@@ -319,7 +384,17 @@ const MultiPlayerWorld1 = () => {
     const players = Object.values(gameState.players);
     const platforms = platformsRef.current;
 
-    // Camera follow
+    // 🔧 DEBUG: Log every second
+    if (animTimer.current % 60 === 0) {
+      console.log("🎮 Game Loop Debug:", {
+        playersCount: players.length,
+        playerIds: Object.keys(gameState.players),
+        myPlayerId: playerId,
+        gameStatus: gameState.gameStatus,
+        imagesLoaded: !!gameImages,
+      });
+    }
+
     if (playerId && gameState.players[playerId]) {
       const myPlayer = gameState.players[playerId];
       cameraRef.current = updateCamera(
@@ -357,7 +432,8 @@ const MultiPlayerWorld1 = () => {
       drawDoor(ctx, doorObject, gameImages.door, gameState.keyCollected);
     }
 
-    players.forEach((p) => {
+    // 🔧 Player rendering with fallback
+    players.forEach((p: Player) => {
       if (p.dead) return;
 
       const img = getPlayerSprite(
@@ -367,20 +443,28 @@ const MultiPlayerWorld1 = () => {
         p.facingRight,
       );
 
-      if (!img || !img.complete) return;
-
-      ctx.save();
-      if (p.id === playerId) {
-        ctx.shadowColor = "#FFD700";
-        ctx.shadowBlur = 15;
+      if (!img || !img.complete) {
+        // Fallback: Draw colored rectangle
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.width, p.height);
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(p.x, p.y, p.width, p.height);
       } else {
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 8;
+        ctx.save();
+        if (p.id === playerId) {
+          ctx.shadowColor = "#FFD700";
+          ctx.shadowBlur = 15;
+        } else {
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 8;
+        }
+
+        ctx.drawImage(img, p.x, p.y, p.width, p.height);
+        ctx.restore();
       }
 
-      ctx.drawImage(img, p.x, p.y, p.width, p.height);
-      ctx.restore();
-
+      // Always draw player label
       ctx.fillStyle = p.id === playerId ? "#FFD700" : p.color;
       ctx.font = "bold 14px Arial";
       ctx.textAlign = "center";
@@ -425,13 +509,13 @@ const MultiPlayerWorld1 = () => {
   // ✅ Loading screen
   if (!imagesLoaded) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-linear-to-b from-slate-800 to-slate-900">
+      <div className="w-screen h-screen flex items-center justify-center bg-leanear-to-b from-slate-800 to-slate-900">
         <div className="text-center">
           <div className="text-4xl font-bold text-white mb-4">
             Loading World 1...
           </div>
           <div className="w-48 h-2 bg-white/30 rounded-full overflow-hidden">
-            <div className="h-full bg-yellow-500 animate-pulse"></div>
+            <div className="h-full bg-yellow-500 animate-pulse w-full"></div>
           </div>
         </div>
       </div>
@@ -442,13 +526,38 @@ const MultiPlayerWorld1 = () => {
   if (!isConnected) {
     return (
       <div className="w-screen h-screen flex items-center justify-center bg-linear-to-b from-slate-800 to-slate-900">
-        <div className="text-center">
+        <div className="text-center max-w-md px-4">
           <div className="text-4xl font-bold text-white mb-4">
-            {isReconnecting ? "Reconnecting..." : "Connecting to server..."}
+            {isReconnecting ? "🔄 Reconnecting..." : "🔌 Connecting..."}
           </div>
-          <div className="w-48 h-2 bg-white/30 rounded-full overflow-hidden">
-            <div className="h-full bg-yellow-500 animate-pulse"></div>
+
+          <div className="w-48 h-2 bg-white/30 rounded-full overflow-hidden mx-auto mb-4">
+            <div className="h-full bg-yellow-500 animate-pulse w-full"></div>
           </div>
+
+          {connectionError && (
+            <div className="mt-4 p-4 bg-red-600/20 border border-red-500 rounded-lg">
+              <p className="text-white text-sm mb-3">{connectionError}</p>
+              <p className="text-gray-400 text-xs mb-3">
+                Backend:{" "}
+                {process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}
+              </p>
+              <div className="flex gap-2 justify-center">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white text-sm rounded transition-all"
+                >
+                  Retry
+                </button>
+                <button
+                  onClick={() => router.push("/Home-page/Multiplayer/Lobby")}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm rounded transition-all"
+                >
+                  Exit
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -465,23 +574,38 @@ const MultiPlayerWorld1 = () => {
       />
 
       {roomCode && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-black/80 px-6 py-3 rounded-lg">
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-black/80 px-6 py-3 rounded-lg">
           <p className="text-white text-lg">
             Room: <span className="font-bold text-yellow-400">{roomCode}</span>
           </p>
         </div>
       )}
 
-      {/* ✅ Reconnecting indicator */}
+      <div className="fixed top-4 left-4 flex items-center gap-2 bg-black/80 px-3 py-1 rounded text-xs">
+        <div
+          className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`}
+        ></div>
+        <span className="text-white">
+          {isConnected ? "Connected" : "Disconnected"}
+        </span>
+      </div>
+
+      {/* Debug info */}
+      <div className="fixed bottom-4 left-4 bg-black/80 px-3 py-2 rounded text-xs text-white">
+        <div>Players: {Object.keys(gameState.players).length}</div>
+        <div>Status: {gameState.gameStatus}</div>
+        <div>My ID: {playerId}</div>
+      </div>
+
       {isReconnecting && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-orange-600 text-white px-6 py-3 rounded-lg animate-pulse">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-4 py-2 rounded text-sm">
           🔄 Reconnecting...
         </div>
       )}
 
       <button
         onClick={() => router.push("/Home-page/Multiplayer/Lobby")}
-        className="fixed top-4 right-4 px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg transition-all"
+        className="fixed top-4 right-4 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded transition-all"
       >
         Exit
       </button>
