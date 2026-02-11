@@ -20,7 +20,7 @@ export class Renderer {
     ctx: CanvasRenderingContext2D,
     canvasWidth: number,
     canvasHeight: number,
-    groundY: number
+    groundY: number,
   ) {
     this.ctx = ctx;
     this.canvasWidth = canvasWidth;
@@ -60,11 +60,11 @@ export class Renderer {
       this.ctx.beginPath();
       this.ctx.moveTo(
         this.canvasWidth - 100 + Math.cos(angle) * 70,
-        100 + Math.sin(angle) * 70
+        100 + Math.sin(angle) * 70,
       );
       this.ctx.lineTo(
         this.canvasWidth - 100 + Math.cos(angle) * 110,
-        100 + Math.sin(angle) * 110
+        100 + Math.sin(angle) * 110,
       );
       this.ctx.stroke();
     }
@@ -77,10 +77,34 @@ export class Renderer {
       this.ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
       this.ctx.beginPath();
       this.ctx.arc(cloud.x, cloud.y, cloud.width * 0.25, 0, Math.PI * 2);
-      this.ctx.arc(cloud.x + cloud.width * 0.2, cloud.y - 10, cloud.width * 0.2, 0, Math.PI * 2);
-      this.ctx.arc(cloud.x + cloud.width * 0.4, cloud.y, cloud.width * 0.3, 0, Math.PI * 2);
-      this.ctx.arc(cloud.x + cloud.width * 0.6, cloud.y - 5, cloud.width * 0.2, 0, Math.PI * 2);
-      this.ctx.arc(cloud.x + cloud.width * 0.75, cloud.y + 5, cloud.width * 0.2, 0, Math.PI * 2);
+      this.ctx.arc(
+        cloud.x + cloud.width * 0.2,
+        cloud.y - 10,
+        cloud.width * 0.2,
+        0,
+        Math.PI * 2,
+      );
+      this.ctx.arc(
+        cloud.x + cloud.width * 0.4,
+        cloud.y,
+        cloud.width * 0.3,
+        0,
+        Math.PI * 2,
+      );
+      this.ctx.arc(
+        cloud.x + cloud.width * 0.6,
+        cloud.y - 5,
+        cloud.width * 0.2,
+        0,
+        Math.PI * 2,
+      );
+      this.ctx.arc(
+        cloud.x + cloud.width * 0.75,
+        cloud.y + 5,
+        cloud.width * 0.2,
+        0,
+        Math.PI * 2,
+      );
       this.ctx.fill();
     });
     this.ctx.restore();
@@ -101,30 +125,51 @@ export class Renderer {
       this.ctx.fillStyle = "#228B22";
       this.ctx.fillRect(platform.x, platform.y, platform.width, 8);
       this.ctx.fillStyle = "#8B4513";
-      this.ctx.fillRect(platform.x, platform.y + 8, platform.width, platform.height - 8);
+      this.ctx.fillRect(
+        platform.x,
+        platform.y + 8,
+        platform.width,
+        platform.height - 8,
+      );
     });
     this.ctx.restore();
   }
 
-  renderMovingPlatforms(movingPlatforms: MovingPlatform[], camera: Camera): void {
+  renderMovingPlatforms(
+    movingPlatforms: MovingPlatform[],
+    camera: Camera,
+  ): void {
     this.ctx.save();
     this.ctx.translate(-camera.x, 0);
     movingPlatforms.forEach((platform) => {
       this.ctx.fillStyle = "#DAA520";
-      this.ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+      this.ctx.fillRect(
+        platform.x,
+        platform.y,
+        platform.width,
+        platform.height,
+      );
       this.ctx.fillStyle = "#FFD700";
       this.ctx.fillRect(platform.x, platform.y, platform.width, 5);
     });
     this.ctx.restore();
   }
 
-  renderFallingPlatforms(fallingPlatforms: FallingPlatform[], camera: Camera): void {
+  renderFallingPlatforms(
+    fallingPlatforms: FallingPlatform[],
+    camera: Camera,
+  ): void {
     this.ctx.save();
     this.ctx.translate(-camera.x, 0);
     fallingPlatforms.forEach((platform) => {
       if (platform.y < this.canvasHeight) {
         this.ctx.fillStyle = platform.falling ? "#A0522D" : "#CD853F";
-        this.ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+        this.ctx.fillRect(
+          platform.x,
+          platform.y,
+          platform.width,
+          platform.height,
+        );
         this.ctx.strokeStyle = "#654321";
         this.ctx.lineWidth = 1;
         this.ctx.beginPath();
@@ -138,7 +183,12 @@ export class Renderer {
     this.ctx.restore();
   }
 
-  renderDoor(door: Door, keyCollected: boolean, images: GameImages, camera: Camera): void {
+  renderDoor(
+    door: Door,
+    keyCollected: boolean,
+    images: GameImages,
+    camera: Camera,
+  ): void {
     this.ctx.save();
     this.ctx.translate(-camera.x, 0);
     if (images.door && images.door.complete) {
@@ -151,12 +201,23 @@ export class Renderer {
     this.ctx.restore();
   }
 
-  renderKey(key: Key, animTimer: number, images: GameImages, camera: Camera): void {
+  renderKey(
+    key: Key,
+    animTimer: number,
+    images: GameImages,
+    camera: Camera,
+  ): void {
     if (!key.collected && images.key && images.key.complete) {
       this.ctx.save();
       this.ctx.translate(-camera.x, 0);
       const bobOffset = Math.sin(animTimer * 0.1) * 5;
-      this.ctx.drawImage(images.key, key.x, key.y + bobOffset, key.width, key.height);
+      this.ctx.drawImage(
+        images.key,
+        key.x,
+        key.y + bobOffset,
+        key.width,
+        key.height,
+      );
       this.ctx.restore();
     }
   }
@@ -172,27 +233,35 @@ export class Renderer {
 
       if (player.id === 1) {
         if (player.animFrame === 0) {
-          playerImage = images.playerIdle;
+          playerImage = images.player1Idle;
         } else {
-          playerImage = player.facingRight ? images.playerRight : images.playerLeft;
+          playerImage = player.facingRight
+            ? images.player1Right
+            : images.player2Right;
         }
       } else if (player.id === 2) {
         if (player.animFrame === 0) {
           playerImage = images.player2Idle;
         } else {
-          playerImage = player.facingRight ? images.player2Right : images.player2Left;
+          playerImage = player.facingRight
+            ? images.player2Right
+            : images.player2Left;
         }
       } else if (player.id === 3) {
         if (player.animFrame === 0) {
           playerImage = images.player3Idle;
         } else {
-          playerImage = player.facingRight ? images.player3Right : images.player3Left;
+          playerImage = player.facingRight
+            ? images.player3Right
+            : images.player3Left;
         }
       } else if (player.id === 4) {
         if (player.animFrame === 0) {
           playerImage = images.player4Idle;
         } else {
-          playerImage = player.facingRight ? images.player4Right : images.player4Left;
+          playerImage = player.facingRight
+            ? images.player4Right
+            : images.player4Left;
         }
       }
 
@@ -200,13 +269,23 @@ export class Renderer {
         this.ctx.save();
         this.ctx.shadowColor = player.color;
         this.ctx.shadowBlur = 8;
-        this.ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+        this.ctx.drawImage(
+          playerImage,
+          player.x,
+          player.y,
+          player.width,
+          player.height,
+        );
         this.ctx.restore();
 
         this.ctx.fillStyle = player.color;
         this.ctx.font = "bold 14px Arial";
         this.ctx.textAlign = "center";
-        this.ctx.fillText(`P${player.id}`, player.x + player.width / 2, player.y - 10);
+        this.ctx.fillText(
+          `P${player.id}`,
+          player.x + player.width / 2,
+          player.y - 10,
+        );
       }
     });
 
@@ -219,7 +298,7 @@ export class Renderer {
     this.ctx.fillStyle = "#fff";
     this.ctx.font = "bold 20px Arial";
     this.ctx.textAlign = "left";
-    this.ctx.fillText(`Key: ${hasKey ? "✅" : "🔒"}`, 25, 45);
+    this.ctx.fillText(`Key: ${hasKey ? "✅" : ""}`, 25, 45);
     this.ctx.fillText(`Door: ${playersAtDoorCount}/4`, 100, 45);
   }
 
@@ -236,7 +315,11 @@ export class Renderer {
     this.ctx.fillStyle = "#2ECC71";
     this.ctx.fillText("P4: IJKL", 130, this.canvasHeight - 27);
     this.ctx.fillStyle = "#fff";
-    this.ctx.fillText("| Stack on each other like Pico Park!", 230, this.canvasHeight - 37);
+    this.ctx.fillText(
+      "| Stack on each other like Pico Park!",
+      230,
+      this.canvasHeight - 37,
+    );
   }
 
   renderDeathScreen(images: GameImages): void {
@@ -250,7 +333,7 @@ export class Renderer {
         this.canvasWidth / 2 - imgSize / 2,
         this.canvasHeight / 2 - imgSize / 2 - 30,
         imgSize,
-        imgSize
+        imgSize,
       );
     }
 
@@ -260,11 +343,15 @@ export class Renderer {
     this.ctx.fillText(
       "YOU DIED! Maybe skill issue?",
       this.canvasWidth / 2,
-      this.canvasHeight / 2 + 100
+      this.canvasHeight / 2 + 100,
     );
     this.ctx.font = "24px Arial";
     this.ctx.fillStyle = "#ffffff";
-    this.ctx.fillText("Respawning...", this.canvasWidth / 2, this.canvasHeight / 2 + 140);
+    this.ctx.fillText(
+      "Respawning...",
+      this.canvasWidth / 2,
+      this.canvasHeight / 2 + 140,
+    );
     this.ctx.textAlign = "left";
   }
 }

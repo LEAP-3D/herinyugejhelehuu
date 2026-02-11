@@ -69,7 +69,7 @@ export interface JoinDeniedPayload {
 
 export interface JoinSuccessPayload {
   roomCode: string;
-  playerId: number;   // ✅ number
+  playerId: number; // ✅ number
   playerCount: number;
 }
 
@@ -87,7 +87,7 @@ export interface PlayerKeys {
 }
 
 export interface PlayerInput {
-  playerId: number;    // ✅ number
+  playerId: number; // ✅ number
   keys: PlayerKeys;
   timestamp: number;
 }
@@ -100,3 +100,27 @@ export const MOVE_SPEED = 5;
 export const PLAYER_WIDTH = 45;
 export const PLAYER_HEIGHT = 55;
 export const DEATH_FREEZE_TIME = 1500;
+
+export interface GameImages {
+  playerIdle: HTMLImageElement;
+  playerWalk: HTMLImageElement;
+  playerWalk2: HTMLImageElement;
+  playerRight: HTMLImageElement; // Renderer-т хэрэгтэй
+  playerLeft: HTMLImageElement; // Renderer-т хэрэгтэй
+
+  player2Idle: HTMLImageElement;
+  player2Right: HTMLImageElement;
+  player2Left: HTMLImageElement;
+
+  player3Idle: HTMLImageElement;
+  player3Right: HTMLImageElement;
+  player3Left: HTMLImageElement;
+
+  player4Idle: HTMLImageElement;
+  player4Right: HTMLImageElement;
+  player4Left: HTMLImageElement;
+
+  key: HTMLImageElement;
+  door: HTMLImageElement;
+  death: HTMLImageElement;
+}

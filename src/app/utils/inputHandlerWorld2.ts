@@ -1,16 +1,16 @@
-// inputHandlerWorld1.ts - Гарын удирдлага - ЗАСВАРЛАСАН
+// inputHandlerWorld2.ts - Засварласан хувилбар
 
 export class InputHandler {
   private keyPressed: Set<string> = new Set();
 
   constructor() {
-    // Constructor дотор юу ч хийхгүй
+    // Constructor дотор юу ч хийхгүй, зөвхөн state удирдана
   }
 
   handleKeyDown = (e: KeyboardEvent): void => {
     this.keyPressed.add(e.key.toLowerCase());
 
-    // Prevent default arrow key scrolling
+    // Prevent default scrolling
     if (
       ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", " "].includes(e.key)
     ) {
@@ -62,18 +62,7 @@ export class InputHandler {
     }
   }
 
-  // Legacy methods - backward compatibility
-  init(): void {
-    // Хуучин код-д init() дуудсан байж болох учраас
-    // Хоосон функц үлдээнэ
-  }
-
-  cleanup(): void {
-    // Хуучин код-д cleanup() дуудсан байж болох учраас
-    this.clear();
-  }
-
-  // Бүх дарагдсан товчлууруудыг цэвэрлэх
+  // Clear all pressed keys
   clear(): void {
     this.keyPressed.clear();
   }

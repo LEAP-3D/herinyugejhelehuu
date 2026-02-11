@@ -1,174 +1,203 @@
+// World2.tsx - Үндсэн тоглоомын компонент (Multiplayer) - ЗАСВАРЛАСАН
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { io, type Socket } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 
-// Import images
-import player1IdleImg from "@/app/assets/Finn.png";
-import player1RightImg from "@/app/assets/Finn-right.png";
-import player1LeftImg from "@/app/assets/Finn-left.png";
+// Зургуудын импорт
+import playerIdleImg from "@/app/assets/Finn.png";
+import playerWalkImg from "@/app/assets/Finn-right.png";
+import playerWalk2Img from "@/app/assets/Finn-left.png";
 import player2IdleImg from "@/app/assets/Iceking.png";
-import player2RightImg from "@/app/assets/Iceking-right.png";
-import player2LeftImg from "@/app/assets/Ice-king-left.png";
+import player2WalkImg from "@/app/assets/Iceking-right.png";
+import player2Walk2Img from "@/app/assets/Ice-king-left.png";
 import player3IdleImg from "@/app/assets/Jakeidle.png";
-import player3RightImg from "@/app/assets/Jake-right.png";
-import player3LeftImg from "@/app/assets/Jake-left.png";
+import player3WalkImg from "@/app/assets/Jake-right.png";
+import player3Walk2Img from "@/app/assets/Jake-left.png";
 import player4IdleImg from "@/app/assets/BMOidle.png";
-import player4RightImg from "@/app/assets/BMO-right.png";
-import player4LeftImg from "@/app/assets/BMO-left.png";
+import player4WalkImg from "@/app/assets/BMO-right.png";
+import player4Walk2Img from "@/app/assets/BMO-left.png";
 import keyImg from "@/app/assets/Keys.png";
 import doorImg from "@/app/assets/Door.png";
 import deathImg from "@/app/assets/Death.png";
 import dangerButtonImg from "@/app/assets/Button.png";
-import boxImg from "@/app/assets/box.png";
 
-// Import utilities
-import { updateCamera, type Camera } from "@/app/utils/camera";
+// Модулиудын импорт
 import {
-  createPlatformsWorld3,
-  createDangerButtonsWorld3,
-  GAME_CONSTANTS,
-} from "@/app/utils/gameDataWorld1";
+  Player,
+  Platform,
+  DangerButton,
+  Cloud,
+  Key,
+  Door,
+  Camera,
+  createPlatforms,
+  createDangerButtons,
+  createClouds,
+} from "@/app/utils/gameDataWorld2";
+import { ImageLoader } from "@/app/utils/imageLoaderWorld2";
+import { InputHandler } from "@/app/utils/inputHandlerWorld2";
+import { updateCamera } from "@/app/utils/cameraWorld2";
 import {
-  loadAllImagesWorld3 as loadAllImages,
-  getPlayerSprite,
-  type GameImages,
-} from "@/app/utils/imageLoaderWorld1";
-import {
-  createKeyboardHandlers,
-  getPlayerInput,
-} from "@/app/utils/inputHandlerWorld1";
-import {
-  drawKey,
-  drawDoor,
-  drawWaitingScreen,
-  drawWinScreen,
-  drawDeathScreen,
-} from "@/app/utils/SharedRendering";
-import {
-  drawUIWorld3 as drawUI,
-  drawBackgroundWorld3 as drawBackground,
-  drawBoxes,
-} from "@/app/utils/World3Rendering";
-import {
-  drawPlatforms,
-  drawDangerButtons,
-} from "@/app/utils/World3RenderingPlatformButtton";
+  renderBackground,
+  renderStars,
+  renderMoon,
+  renderClouds,
+  renderGround,
+  renderPlatforms,
+  renderDangerButtons,
+  renderDoor,
+  renderKey,
+  renderPlayers,
+  renderHUD,
+  renderControls,
+  renderDeathScreen,
+  updateClouds,
+} from "@/app/utils/renderWorld2";
 
-import { canAccessWorld, getNextWorld } from "@/app/utils/Progresstracker";
-
-const drawGroundWorld3 = (ctx: CanvasRenderingContext2D, height: number) => {
-  ctx.fillStyle = "#1a1a2e";
-  ctx.fillRect(-100, height - 60, 7000, 100);
-};
-
-interface Player {
-  id: string;
-  playerId: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  width: number;
-  height: number;
-  onGround: boolean;
-  animFrame: number;
-  facingRight: boolean;
-  color: string;
-  dead: boolean;
-  standingOnPlayer: string | null;
-}
-
-interface PushBox {
-  id: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  width: number;
-  height: number;
-  onGround: boolean;
-}
-
+// Socket.IO types
 interface GameState {
-  players: Record<string, Player>;
-  boxes: PushBox[];
+  players: { [key: string]: Player };
   keyCollected: boolean;
-  playersAtDoor: string[];
+  playersAtDoor: number[];
   gameStatus: "waiting" | "playing" | "won" | "dead";
 }
 
-const MultiPlayerWorld3 = () => {
+interface JoinDeniedPayload {
+  message: string;
+}
+
+interface JoinSuccessPayload {
+  roomCode: string;
+  playerId: string;
+}
+interface GameImages {
+  [key: string]: HTMLImageElement;
+}
+
+const World2 = () => {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const socketRef = useRef<Socket | null>(null);
-  const winTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const gameImages = useRef<GameImages | null>(null);
 
-  const [playerId, setPlayerId] = useState<string>("");
-  const [roomCode, setRoomCode] = useState<string>("");
+  // Socket state
+  const socketRef = useRef<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState("");
+  const [roomCode, setRoomCode] = useState("");
+
+  // Game state
   const [gameState, setGameState] = useState<GameState>({
     players: {},
-    boxes: [],
     keyCollected: false,
     playersAtDoor: [],
     gameStatus: "waiting",
   });
-  const [isConnected, setIsConnected] = useState(false);
-  const [isReconnecting, setIsReconnecting] = useState(false);
-  const [connectionError, setConnectionError] = useState<string>("");
+  const [hasKey, setHasKey] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 700 });
   const [imagesLoaded, setImagesLoaded] = useState(false);
-  const [gameImages, setGameImages] = useState<GameImages | null>(null);
 
-  const keysPressed = useRef<Set<string>>(new Set());
   const animTimer = useRef(0);
+  const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputHandler = useRef<InputHandler>(new InputHandler());
+  const imageLoader = useRef(new ImageLoader());
+
+  const groundY = canvasSize.height - 80;
+
+  // Game objects
+  const platformsRef = useRef<Platform[]>(createPlatforms(groundY));
+  const dangerButtonsRef = useRef<DangerButton[]>(createDangerButtons(groundY));
+  const cloudsRef = useRef<Cloud[]>(createClouds());
+  const keyRef = useRef<Key>({
+    x: 2400,
+    y: groundY - 100,
+    width: 40,
+    height: 40,
+    collected: false,
+  });
+  const doorRef = useRef<Door>({
+    x: 4400,
+    y: groundY - 120,
+    width: 80,
+    height: 120,
+  });
   const cameraRef = useRef<Camera>({ x: 0, y: 0 });
 
-  const groundY = canvasSize.height - GAME_CONSTANTS.GROUND_OFFSET;
-  const platformsRef = useRef(createPlatformsWorld3(groundY));
-  const dangerButtonsRef = useRef(createDangerButtonsWorld3(groundY));
+  // Get next world helper
+  const getNextWorld = () => {
+    const currentWorld = 2;
+    const totalWorlds = 3;
+    return currentWorld < totalWorlds ? currentWorld + 1 : null;
+  };
 
-  // ✅ Access check (World 3)
+  /**
+   * ✅ WINDOW RESIZE
+   */
   useEffect(() => {
-    if (!canAccessWorld(3)) {
-      alert("Та эхлээд өмнөх world-оо дуусгана уу!");
-      router.push("/");
-    }
-  }, [router]);
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      setCanvasSize({ width, height });
+    };
 
-  // ✅ Load images
-  useEffect(() => {
-    loadAllImages(
-      player1IdleImg,
-      player1RightImg,
-      player1LeftImg,
-      player2IdleImg,
-      player2RightImg,
-      player2LeftImg,
-      player3IdleImg,
-      player3RightImg,
-      player3LeftImg,
-      player4IdleImg,
-      player4RightImg,
-      player4LeftImg,
-      keyImg,
-      doorImg,
-      deathImg,
-      dangerButtonImg,
-      boxImg,
-    )
-      .then((images: GameImages) => {
-        setGameImages(images);
-        setImagesLoaded(true);
-      })
-      .catch((error: Error) => {
-        console.error("❌ Failed to load images:", error);
-        alert("Зураг ачаалахад алдаа гарлаа. Дахин оролдоно уу.");
-      });
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   /**
-   * ✅ SOCKET CONNECTION (FIXED)
+   * ✅ LOAD IMAGES
+   */
+  /**
+   * ✅ LOAD IMAGES - FINAL FIX
+   */
+  useEffect(() => {
+    const loader = new ImageLoader();
+
+    loader
+      .loadImages({
+        // Player 1
+        player1Idle: playerIdleImg.src,
+        player1Right: playerWalkImg.src,
+        player1Left: playerWalk2Img.src,
+
+        // Player 2
+        player2Idle: player2IdleImg.src,
+        player2Right: player2WalkImg.src,
+        player2Left: player2Walk2Img.src,
+
+        // Player 3
+        player3Idle: player3IdleImg.src,
+        player3Right: player3WalkImg.src,
+        player3Left: player3Walk2Img.src,
+
+        // Player 4
+        player4Idle: player4IdleImg.src,
+        player4Right: player4WalkImg.src,
+        player4Left: player4Walk2Img.src,
+
+        // Others
+        key: keyImg.src,
+        door: doorImg.src,
+        death: deathImg.src,
+        dangerButton: dangerButtonImg.src,
+      })
+      .then((images) => {
+        // Төрлийг нь локал интерфейс рүү хөрвүүлж онооно
+        if (gameImages) {
+          gameImages.current = images as unknown as GameImages;
+        }
+        setImagesLoaded(true);
+        console.log("✅ Бүх зураг амжилттай ачаалагдлаа");
+      })
+      .catch((error) => {
+        console.error("❌ Зураг ачаалахад алдаа гарлаа:", error);
+      });
+  }, []);
+  /**
+   * ✅ SOCKET CONNECTION
    */
   useEffect(() => {
     const SERVER_URL =
@@ -180,12 +209,15 @@ const MultiPlayerWorld3 = () => {
     const pid = localStorage.getItem("playerId")?.trim();
 
     if (!rc || !pid) {
+      console.warn("⚠️ Missing room code or player ID");
       router.push("/Home-page/Multiplayer/Lobby");
       return;
     }
 
     setRoomCode(rc);
-    setPlayerId(pid);
+
+    console.log("Attempting to connect to:", SERVER_URL);
+    console.log("Room Code:", rc, "| Player ID:", pid);
 
     const s = io(SERVER_URL, {
       transports: ["websocket", "polling"],
@@ -193,7 +225,10 @@ const MultiPlayerWorld3 = () => {
       reconnectionAttempts: maxReconnectAttempts,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
+      timeout: 10000,
       withCredentials: true,
+      autoConnect: true,
+      forceNew: true,
     });
 
     socketRef.current = s;
@@ -203,7 +238,6 @@ const MultiPlayerWorld3 = () => {
       setIsReconnecting(false);
       setGameState({
         players: {},
-        boxes: [],
         keyCollected: false,
         playersAtDoor: [],
         gameStatus: "waiting",
@@ -211,8 +245,15 @@ const MultiPlayerWorld3 = () => {
     };
 
     const onState = (state: GameState) => {
+      console.log("📥 Received game state:", {
+        playerCount: Object.keys(state.players).length,
+        players: state.players,
+        status: state.gameStatus,
+      });
+
       setGameState(state);
       setConnectionError("");
+      setHasKey(state.keyCollected);
 
       if (winTimerRef.current) {
         clearTimeout(winTimerRef.current);
@@ -232,15 +273,17 @@ const MultiPlayerWorld3 = () => {
     };
 
     s.on("connect", () => {
-      console.log("✅ Connected to server");
+      console.log("✅ Connected to server with ID:", s.id);
       setIsConnected(true);
       setIsReconnecting(false);
       setConnectionError("");
       reconnectAttempts.current = 0;
+
+      console.log("📤 Emitting joinRoom:", { roomCode: rc, playerId: pid });
       s.emit("joinRoom", { roomCode: rc, playerId: pid });
     });
 
-    s.on("connect_error", (error) => {
+    s.on("connect_error", (error: Error) => {
       console.error("❌ Connection error:", error);
       reconnectAttempts.current++;
 
@@ -259,7 +302,7 @@ const MultiPlayerWorld3 = () => {
       setConnectionError(userMessage);
     });
 
-    s.on("disconnect", (reason) => {
+    s.on("disconnect", (reason: string) => {
       console.log("🔌 Disconnected:", reason);
       resetClientState();
       if (reason === "io server disconnect") {
@@ -267,14 +310,14 @@ const MultiPlayerWorld3 = () => {
       }
     });
 
-    s.on("reconnect_attempt", (attemptNumber) => {
+    s.on("reconnect_attempt", (attemptNumber: number) => {
       setIsReconnecting(true);
       setConnectionError(
         `Reconnecting... (${attemptNumber}/${maxReconnectAttempts})`,
       );
     });
 
-    s.on("reconnect", (attemptNumber) => {
+    s.on("reconnect", (attemptNumber: number) => {
       console.log(`✅ Reconnected after ${attemptNumber} attempts`);
       setIsReconnecting(false);
       setConnectionError("");
@@ -301,10 +344,14 @@ const MultiPlayerWorld3 = () => {
     s.on("gameState", onState);
     s.on("roomState", onState);
 
-    s.on("joinDenied", (data: { message?: string }) => {
+    s.on("joinDenied", (data: JoinDeniedPayload) => {
+      console.error("❌ Join denied:", data.message);
       alert(data.message || "Өрөөнд нэвтрэх боломжгүй");
-      console.log(data.message);
-      // router.push("/Home-page/Multiplayer/Lobby");
+      router.push("/Home-page/Multiplayer/Lobby");
+    });
+
+    s.on("joinSuccess", (data: JoinSuccessPayload) => {
+      console.log("✅ Successfully joined room:", data);
     });
 
     return () => {
@@ -321,252 +368,203 @@ const MultiPlayerWorld3 = () => {
       s.off("gameState");
       s.off("roomState");
       s.off("joinDenied");
+      s.off("joinSuccess");
       s.disconnect();
     };
   }, [router]);
 
-  // ✅ Resize handler
+  /**
+   * ✅ INPUT HANDLER - ЗАСВАРЛАСАН
+   */
   useEffect(() => {
-    const handleResize = () => {
-      setCanvasSize({ width: window.innerWidth, height: window.innerHeight });
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+    const handler = inputHandler.current;
 
-  // ✅ Send input to server
-  useEffect(() => {
-    const s = socketRef.current;
-    if (!s?.connected || !roomCode) return;
+    // Сүүлд илгээсэн input-ыг хадгалах (давхардал илгээхгүй байхын тулд)
+    let lastSentInput = { left: false, right: false, jump: false };
+    let rafId: number | null = null;
 
-    const interval = setInterval(() => {
-      if (s.connected) {
-        const input = getPlayerInput(keysPressed.current);
-        s.emit("playerInput", input);
+    // Серверт input илгээх функц
+    const sendInputToServer = () => {
+      if (!socketRef.current || !isConnected) return;
+
+      const pid = localStorage.getItem("playerId");
+      if (!pid) return;
+
+      const playerInput = handler.getPlayerInput(parseInt(pid));
+
+      // Зөвхөн өөрчлөлт байвал илгээх (bandwidth хэмнэх)
+      if (JSON.stringify(playerInput) !== JSON.stringify(lastSentInput)) {
+        socketRef.current.emit("playerMove", {
+          playerId: pid,
+          input: playerInput,
+        });
+        lastSentInput = { ...playerInput };
       }
-    }, 1000 / 60);
+    };
 
-    return () => clearInterval(interval);
-  }, [roomCode, isConnected]);
+    // RequestAnimationFrame ашиглан debounce хийх
+    const scheduleUpdate = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(sendInputToServer);
+    };
 
-  // ✅ Keyboard handling
-  useEffect(() => {
-    const { handleKeyDown, handleKeyUp } = createKeyboardHandlers(
-      keysPressed.current,
-    );
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // InputHandler-д товчлуур дарагдсан гэдгийг мэдэгдэх
+      handler.handleKeyDown(e);
+
+      // Серверт илгээхийг товлох
+      scheduleUpdate();
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // InputHandler-д товчлуур суллагдсан гэдгийг мэдэгдэх
+      handler.handleKeyUp(e);
+
+      // Серверт илгээхийг товлох
+      scheduleUpdate();
+    };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
     return () => {
+      // Cleanup
+      if (rafId) cancelAnimationFrame(rafId);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      handler.clear(); // Бүх товчлуурыг цэвэрлэх
     };
-  }, []);
+  }, [isConnected]);
 
-  // ✅ Game rendering loop
+  /**
+   * ✅ GAME LOOP (RENDERING ONLY)
+   */
   const gameLoop = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !gameImages) return;
+    const images = imageLoader.current.getImages();
+    if (!canvas || !images) return;
+
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
-    animTimer.current++;
 
     const players = Object.values(gameState.players);
     const platforms = platformsRef.current;
     const dangerButtons = dangerButtonsRef.current;
-    const boxes = gameState.boxes;
+    const clouds = cloudsRef.current;
+    const key = keyRef.current;
+    const door = doorRef.current;
+    const camera = cameraRef.current;
 
-    if (playerId && gameState.players[playerId]) {
-      const myPlayer = gameState.players[playerId];
-      cameraRef.current = updateCamera(
-        cameraRef.current,
-        myPlayer,
-        canvasSize.width,
-      );
+    animTimer.current++;
+
+    // Update clouds
+    updateClouds(clouds);
+
+    // Update camera (follow all players)
+    if (players.length > 0) {
+      updateCamera(camera, players, canvasSize.width);
     }
 
-    drawBackground(
-      ctx,
-      canvasSize.width,
-      canvasSize.height,
-      animTimer.current,
-      cameraRef.current.x,
-    );
+    // Update key collected state
+    key.collected = gameState.keyCollected;
 
-    ctx.save();
-    ctx.translate(-cameraRef.current.x, 0);
+    // === RENDERING ===
 
-    drawGroundWorld3(ctx, canvasSize.height);
-    drawPlatforms(ctx, platforms);
+    // Background
+    renderBackground(ctx, canvasSize.width, canvasSize.height);
 
-    if (gameImages.dangerButton) {
-      drawDangerButtons(
-        ctx,
-        dangerButtons,
-        animTimer.current,
-        gameImages.dangerButton,
-      );
+    // Stars
+    renderStars(ctx, animTimer.current);
+
+    // Moon
+    renderMoon(ctx, canvasSize.width);
+
+    // Clouds (with parallax)
+    renderClouds(ctx, clouds, camera);
+
+    // World objects (with camera)
+    renderGround(ctx, canvasSize.height, camera);
+    renderPlatforms(ctx, platforms, camera);
+    renderDangerButtons(ctx, dangerButtons, images, camera);
+    renderDoor(ctx, door, images, camera);
+    renderKey(ctx, key, images, animTimer.current, camera);
+    renderPlayers(ctx, players, images, camera);
+
+    // UI (no camera transform)
+    renderHUD(ctx, hasKey, gameState.playersAtDoor.length);
+    renderControls(ctx, canvasSize.height);
+
+    // Death screen
+    if (gameState.gameStatus === "dead") {
+      renderDeathScreen(ctx, canvasSize.width, canvasSize.height, images);
     }
+  }, [gameState, hasKey, canvasSize]);
 
-    if (gameImages.box) {
-      drawBoxes(ctx, boxes, gameImages.box);
-    }
-
-    if (!gameState.keyCollected && gameImages.key) {
-      const keyX = GAME_CONSTANTS.KEY_POSITION_WORLD3.x;
-      const keyY = groundY + GAME_CONSTANTS.KEY_POSITION_WORLD3.y;
-      const keyItem = {
-        x: keyX,
-        y: keyY,
-        width: 30,
-        height: 40,
-        collected: false,
-      };
-      drawKey(ctx, keyItem, gameImages.key, animTimer.current);
-    }
-
-    if (gameImages.door) {
-      const doorX = GAME_CONSTANTS.DOOR_POSITION_WORLD3.x;
-      const doorY = groundY + GAME_CONSTANTS.DOOR_POSITION_WORLD3.y;
-      const doorObject = {
-        x: doorX,
-        y: doorY,
-        width: 55,
-        height: 75,
-      };
-      drawDoor(ctx, doorObject, gameImages.door, gameState.keyCollected);
-    }
-
-    players.forEach((p) => {
-      if (p.dead) return;
-
-      const img = getPlayerSprite(
-        gameImages,
-        p.playerId,
-        p.animFrame,
-        p.facingRight,
-      );
-
-      if (!img || !img.complete) return;
-
-      ctx.save();
-      if (p.id === playerId) {
-        ctx.shadowColor = "#FFD700";
-        ctx.shadowBlur = 15;
-      } else {
-        ctx.shadowColor = p.color;
-        ctx.shadowBlur = 8;
-      }
-
-      ctx.drawImage(img, p.x, p.y, p.width, p.height);
-      ctx.restore();
-
-      ctx.fillStyle = p.id === playerId ? "#FFD700" : p.color;
-      ctx.font = "bold 14px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText(`P${p.playerId}`, p.x + p.width / 2, p.y - 10);
-    });
-
-    ctx.restore();
-
-    drawUI(
-      ctx,
-      players.length,
-      gameState.keyCollected,
-      isConnected,
-      canvasSize.height,
-      gameState.playersAtDoor.length,
-      boxes.length,
-    );
-
-    if (gameState.gameStatus === "waiting") {
-      drawWaitingScreen(
-        ctx,
-        canvasSize.width,
-        canvasSize.height,
-        players.length,
-      );
-    } else if (gameState.gameStatus === "won") {
-      drawWinScreen(ctx, canvasSize.width, canvasSize.height);
-    } else if (gameState.gameStatus === "dead") {
-      drawDeathScreen(
-        ctx,
-        canvasSize.width,
-        canvasSize.height,
-        gameImages.death,
-      );
-    }
-  }, [gameState, playerId, canvasSize, isConnected, groundY, gameImages]);
-
+  /**
+   * ✅ GAME LOOP INTERVAL
+   */
   useEffect(() => {
     if (!imagesLoaded) return;
+
     const interval = setInterval(gameLoop, 1000 / 60);
     return () => clearInterval(interval);
   }, [gameLoop, imagesLoaded]);
 
-  // ✅ Loading screen
+  // Loading screen
   if (!imagesLoaded) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900">
+      <div className="w-screen h-screen flex items-center justify-center bg-linear-to-b from-slate-800 to-slate-900">
         <div className="text-center">
           <div className="text-4xl font-bold text-white mb-4">
-            Loading World 3...
+            Loading World 2...
           </div>
-          <div className="w-48 h-2 bg-white/30 rounded-full overflow-hidden">
-            <div className="h-full bg-yellow-500 animate-pulse w-full"></div>
+          <div className="w-48 h-2 bg-white/30 rounded-full overflow-hidden mb-4">
+            <div className="h-full bg-red-500 animate-pulse"></div>
           </div>
         </div>
       </div>
     );
   }
 
-  // ✅ Connecting screen
-  if (!isConnected) {
+  // Connection error screen
+  if (connectionError && !isConnected) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900">
-        <div className="text-center max-w-md px-4">
-          <div className="text-4xl font-bold text-white mb-4">
-            {isReconnecting ? "🔄 Reconnecting..." : "🔌 Connecting..."}
+      <div className="w-screen h-screen flex items-center justify-center bg-linear-to-b from-slate-800 to-slate-900">
+        <div className="text-center">
+          <div className="text-4xl font-bold text-red-500 mb-4">
+            ❌ Connection Error
           </div>
-
-          <div className="w-48 h-2 bg-white/30 rounded-full overflow-hidden mx-auto mb-4">
-            <div className="h-full bg-yellow-500 animate-pulse w-full"></div>
-          </div>
-
-          {connectionError && (
-            <div className="mt-4 p-4 bg-red-600/20 border border-red-500 rounded-lg">
-              <p className="text-white text-sm mb-3">{connectionError}</p>
-              <p className="text-gray-400 text-xs mb-3">
-                Backend:{" "}
-                {process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000"}
-              </p>
-              <div className="flex gap-2 justify-center">
-                <button
-                  onClick={() => window.location.reload()}
-                  className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white text-sm rounded transition-all"
-                >
-                  Retry
-                </button>
-                <button
-                  onClick={() => router.push("/Home-page/Multiplayer/Lobby")}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm rounded transition-all"
-                >
-                  Exit
-                </button>
-              </div>
-            </div>
-          )}
+          <div className="text-white text-xl mb-4">{connectionError}</div>
+          <button
+            onClick={() => router.push("/Home-page/Multiplayer/Lobby")}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg"
+          >
+            Back to Lobby
+          </button>
         </div>
       </div>
     );
   }
 
-  // ✅ Game screen
   return (
-    <div className="w-screen h-screen overflow-hidden bg-slate-900">
+    <div
+      ref={containerRef}
+      className="w-screen h-screen overflow-hidden bg-slate-900"
+    >
+      {/* Room Code display */}
+      {roomCode && (
+        <div className="absolute top-4 left-4 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold z-10">
+          Room: {roomCode}
+        </div>
+      )}
+
+      {/* Connection status */}
+      {isReconnecting && (
+        <div className="absolute top-4 right-4 bg-yellow-500 text-black px-4 py-2 rounded-lg font-bold z-10">
+          🔄 Reconnecting...
+        </div>
+      )}
+
       <canvas
         ref={canvasRef}
         width={canvasSize.width}
@@ -574,34 +572,19 @@ const MultiPlayerWorld3 = () => {
         className="block"
       />
 
-      {roomCode && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-black/80 px-6 py-3 rounded-lg">
-          <p className="text-white text-lg">
-            Room: <span className="font-bold text-yellow-400">{roomCode}</span>
+      {gameState.gameStatus === "won" && (
+        <div className="fixed inset-0 flex flex-col items-center justify-center bg-black/80">
+          <h2 className="text-6xl font-bold text-yellow-400 mb-6">
+            🎉 Level Complete!
+          </h2>
+          <p className="text-white text-2xl mb-8">
+            All 4 players avoided the deadly buttons!
           </p>
+          <p className="text-white text-lg">Moving to next world...</p>
         </div>
       )}
-      <div className="fixed top-4 left-4 flex items-center gap-2 bg-black/80 px-3 py-1 rounded text-xs">
-        <div
-          className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`}
-        ></div>
-        <span className="text-white">
-          {isConnected ? "Connected" : "Disconnected"}
-        </span>
-      </div>
-
-      {isReconnecting && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 bg-orange-600 text-white px-4 py-2 rounded text-sm">
-          🔄 Reconnecting...
-        </div>
-      )}
-      <button
-        onClick={() => router.push("/Home-page/Multiplayer/Lobby")}
-        className="fixed top-4 right-4 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded transition-all"
-      >
-        Exit
-      </button>
     </div>
   );
 };
-export default MultiPlayerWorld3;
+
+export default World2;
