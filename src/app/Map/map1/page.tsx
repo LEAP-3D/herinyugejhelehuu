@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
@@ -8,7 +10,7 @@ import playerWalk2Img from "@/app/assets/Finn-left.png";
 import player2IdleImg from "@/app/assets/Iceking.png";
 import player2Walk1Img from "@/app/assets/Iceking-right.png";
 import player2Walk2Img from "@/app/assets/Ice-king-left.png";
-import player3IdleImg from "@/app/assets/JakeidIe.png";
+import player3IdleImg from "@/app/assets/Jakeidle.png";
 import player3RightImg from "@/app/assets/Jake-right.png";
 import player3LeftImg from "@/app/assets/Jake-left.png";
 import player4IdleImg from "@/app/assets/BMOidle.png";
@@ -16,7 +18,8 @@ import player4RightImg from "@/app/assets/BMO-right.png";
 import player4LeftImg from "@/app/assets/BMO-left.png";
 import doorImg from "@/app/assets/Door.png";
 import deathImg from "@/app/assets/Death.png";
-import keyImg from "@/app/assets/Keys.png"
+import keyImg from "@/app/assets/Keys.png";
+
 import {
   GameState,
   JoinDeniedPayload,
@@ -26,17 +29,17 @@ import { CameraController } from "@/app/utils/cameraWorld1";
 import { GameData } from "@/app/utils/gameDataWorld1";
 import { ImageLoader, GameImages } from "@/app/utils/imageLoaderWorld1";
 import { InputHandler } from "@/app/utils/inputHandlerWorld1";
-import  {PhysicsEngine}  from "@/app/utils/physicsWorld1";
+import { PhysicsEngine } from "@/app/utils/physicsWorld1";
 import { Renderer } from "@/app/utils/renderWorld1";
 
 const World1Multiplayer = () => {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // Multiplayer state
   const [isConnected, setIsConnected] = useState(false);
-  const [isReconnecting, setIsReconnecting] = useState(false);  
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [connectionError, setConnectionError] = useState("");
   const [roomCode, setRoomCode] = useState("");
   const [gameState, setGameState] = useState<GameState>({
@@ -56,7 +59,6 @@ const World1Multiplayer = () => {
   const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deathTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gameImages = useRef<GameImages | null>(null);
-
 
   // Game systems
   const cameraController = useRef(new CameraController());
@@ -102,9 +104,8 @@ const World1Multiplayer = () => {
 
     setRoomCode(rc);
 
-
-    console.log("🔌 Attempting to connect to:", SERVER_URL);
-    console.log("📝 Room Code:", rc, "| Player ID:", pid);
+    console.log("Attempting to connect to:", SERVER_URL);
+    console.log("Room Code:", rc, "| Player ID:", pid);
 
     const s = io(SERVER_URL, {
       transports: ["websocket", "polling"],
@@ -200,7 +201,7 @@ const World1Multiplayer = () => {
     s.on("reconnect_attempt", (attemptNumber: number) => {
       setIsReconnecting(true);
       setConnectionError(
-        `Reconnecting... (${attemptNumber}/${maxReconnectAttempts})`
+        `Reconnecting... (${attemptNumber}/${maxReconnectAttempts})`,
       );
     });
 
@@ -271,7 +272,7 @@ const World1Multiplayer = () => {
         renderer.current.updateCanvasSize(
           width,
           height,
-          gameData.current.getGroundY()
+          gameData.current.getGroundY(),
         );
       }
     };
@@ -281,30 +282,35 @@ const World1Multiplayer = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Load images
+  // Load images - Simplified approach with proper typing
   useEffect(() => {
     const loader = new ImageLoader();
+
     loader
       .loadImages({
-        playerIdle: playerIdleImg,
-        playerWalk1: playerWalk1Img,
-        playerWalk2: playerWalk2Img,
-        player2Idle: player2IdleImg,
-        player2Walk1: player2Walk1Img,
-        player2Walk2: player2Walk2Img,
-        player3Idle: player3IdleImg,
-        player3Right: player3RightImg,
-        player3Left: player3LeftImg,
-        player4Idle: player4IdleImg,
-        player4Right: player4RightImg,
-        player4Left: player4LeftImg,
-        key: keyImg,
-        door: doorImg,
-        death: deathImg,
+        player1Idle: playerIdleImg.src,
+        player1Right: playerWalk1Img.src,
+        player1Left: playerWalk2Img.src,
+        player2Idle: player2IdleImg.src,
+        player2Right: player2Walk1Img.src,
+        player2Left: player2Walk2Img.src,
+        player3Idle: player3IdleImg.src,
+        player3Right: player3RightImg.src,
+        player3Left: player3LeftImg.src,
+        player4Idle: player4IdleImg.src,
+        player4Right: player4RightImg.src,
+        player4Left: player4LeftImg.src,
+        key: keyImg.src,
+        door: doorImg.src,
+        death: deathImg.src,
       })
       .then((images: GameImages) => {
         gameImages.current = images;
         setImagesLoaded(true);
+        console.log("✅ Бүх зураг амжилттай ачаалагдлаа");
+      })
+      .catch((error) => {
+        console.error("❌ Зураг ачаалахад алдаа гарлаа:", error);
       });
   }, []);
 
@@ -318,18 +324,71 @@ const World1Multiplayer = () => {
       ctx,
       canvasSize.width,
       canvasSize.height,
-      groundY
+      groundY,
     );
   }, [canvasSize, groundY, imagesLoaded]);
 
-  // Initialize input handler
+  /**
+   * ✅ INPUT HANDLER - ЗАСВАРЛАСАН
+   */
   useEffect(() => {
     const handler = inputHandler.current;
-    handler.init();
-    return () => {
-      handler.cleanup();
+
+    // Сүүлд илгээсэн input-ыг хадгалах
+    let lastSentInput = { left: false, right: false, jump: false };
+    let rafId: number | null = null;
+
+    // Серверт input илгээх функц
+    const sendInputToServer = () => {
+      if (!socketRef.current || !isConnected) return;
+
+      const pid = localStorage.getItem("playerId");
+      if (!pid) return;
+
+      const playerInput = handler.getPlayerInput(parseInt(pid));
+
+      // Зөвхөн өөрчлөлт байвал илгээх
+      if (JSON.stringify(playerInput) !== JSON.stringify(lastSentInput)) {
+        socketRef.current.emit("playerMove", {
+          playerId: pid,
+          input: playerInput,
+        });
+        lastSentInput = { ...playerInput };
+      }
     };
-  }, []);
+
+    // RequestAnimationFrame ашиглан debounce хийх
+    const scheduleUpdate = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(sendInputToServer);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      handler.handleKeyDown(e);
+      scheduleUpdate();
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      handler.handleKeyUp(e);
+      scheduleUpdate();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+
+      if (typeof handler.clear === "function") {
+        handler.clear();
+      } else if (typeof handler.cleanup === "function") {
+        handler.cleanup();
+      }
+    };
+  }, [isConnected]);
+
   /**
    * ✅ RENDER LOOP
    */
@@ -344,21 +403,17 @@ const World1Multiplayer = () => {
     const key = keyRef.current;
     const door = doorRef.current;
 
-    // Update key collected state
     key.collected = gameState.keyCollected;
 
-    // Update local animations
     physicsEngine.current.incrementAnimTimer();
     physicsEngine.current.updateClouds(clouds);
     physicsEngine.current.updateMovingPlatforms(movingPlatforms);
     physicsEngine.current.updateFallingPlatforms(fallingPlatforms);
 
-    // Update camera to follow players
     if (players.length > 0) {
       cameraController.current.updateCamera(players, canvasSize.width);
     }
 
-    // Render everything
     const camera = cameraController.current.getCamera();
     renderer.current.renderBackground();
     renderer.current.renderSun();
@@ -367,45 +422,47 @@ const World1Multiplayer = () => {
     renderer.current.renderPlatforms(platforms, camera);
     renderer.current.renderMovingPlatforms(movingPlatforms, camera);
     renderer.current.renderFallingPlatforms(fallingPlatforms, camera);
-    renderer.current.renderDoor(door, key.collected, gameImages.current, camera);
+    renderer.current.renderDoor(
+      door,
+      key.collected,
+      gameImages.current,
+      camera,
+    );
     renderer.current.renderKey(
       key,
       physicsEngine.current.getAnimTimer(),
       gameImages.current,
-      camera
+      camera,
     );
     renderer.current.renderPlayers(players, gameImages.current, camera);
     renderer.current.renderHUD(hasKey, gameState.playersAtDoor.length);
     renderer.current.renderControls();
-
     if (gameState.gameStatus === "dead") {
       renderer.current.renderDeathScreen(gameImages.current);
     }
   }, [gameState, canvasSize, hasKey]);
 
-  // Game loop
   useEffect(() => {
     if (!imagesLoaded) return;
-
     const interval = setInterval(gameLoop, 1000 / 60);
     return () => clearInterval(interval);
   }, [gameLoop, imagesLoaded]);
 
-  // Cleanup death timer
- useEffect(() => {
-  return () => {
-    if (deathTimer.current) {
-      clearTimeout(deathTimer.current);
-      deathTimer.current = null; 
-    }
-  };
-}, []);
+  useEffect(() => {
+    return () => {
+      if (deathTimer.current) {
+        clearTimeout(deathTimer.current);
+        deathTimer.current = null;
+      }
+    };
+  }, []);
+
   /**
-   * ✅ LOADING SCREEN
+   * ✅ LOADING SCREEN - FIXED TAILWIND CLASS
    */
   if (!imagesLoaded) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-b from-blue-400 to-blue-200">
+      <div className="w-screen h-screen flex items-center justify-center bg-linear-to-b from-blue-400 to-blue-200">
         <div className="text-center">
           <div className="text-4xl font-bold text-white mb-4">Loading...</div>
           <div className="w-48 h-2 bg-white/30 rounded-full overflow-hidden">
@@ -417,11 +474,11 @@ const World1Multiplayer = () => {
   }
 
   /**
-   * ✅ CONNECTION ERROR SCREEN
+   * ✅ CONNECTION ERROR SCREEN - FIXED TAILWIND CLASS
    */
   if (connectionError && !isConnected) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-b from-red-400 to-red-200">
+      <div className="w-screen h-screen flex items-center justify-center bg-linear-to-b from-red-400 to-red-200">
         <div className="text-center bg-white/90 p-8 rounded-xl shadow-2xl max-w-md">
           <div className="text-6xl mb-4">❌</div>
           <h2 className="text-2xl font-bold text-red-600 mb-4">
@@ -440,11 +497,11 @@ const World1Multiplayer = () => {
   }
 
   /**
-   * ✅ WAITING FOR PLAYERS
+   * ✅ WAITING FOR PLAYERS - FIXED TAILWIND CLASS
    */
   if (gameState.gameStatus === "waiting") {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-b from-blue-400 to-blue-200">
+      <div className="w-screen h-screen flex items-center justify-center bg-linear-to-b from-blue-400 to-blue-200">
         <div className="text-center bg-white/90 p-8 rounded-xl shadow-2xl">
           <div className="text-6xl mb-4">⏳</div>
           <h2 className="text-3xl font-bold text-gray-800 mb-4">
@@ -460,9 +517,7 @@ const World1Multiplayer = () => {
       </div>
     );
   }
-  /**
-   * ✅ GAME CANVAS
-   */
+
   return (
     <div ref={containerRef} className="w-screen h-screen overflow-hidden">
       <canvas
@@ -472,14 +527,12 @@ const World1Multiplayer = () => {
         className="block"
       />
 
-      {/* Connection Status */}
       {isReconnecting && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-6 py-3 rounded-full shadow-lg">
           🔄 Reconnecting...
         </div>
       )}
 
-      {/* Win Screen */}
       {gameState.gameStatus === "won" && (
         <div className="fixed inset-0 flex flex-col items-center justify-center bg-black/70">
           <h2 className="text-6xl font-bold text-yellow-400 mb-6">

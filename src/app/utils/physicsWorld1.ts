@@ -20,7 +20,7 @@ export class PhysicsEngine {
 
   checkCollision(
     rect1: { x: number; y: number; width: number; height: number },
-    rect2: { x: number; y: number; width: number; height: number }
+    rect2: { x: number; y: number; width: number; height: number },
   ): boolean {
     return (
       rect1.x < rect2.x + rect2.width &&
@@ -36,7 +36,8 @@ export class PhysicsEngine {
     const feetY = player.y + player.height;
     const headY = otherPlayer.y;
 
-    const verticalCheck = feetY >= headY - 5 && feetY <= headY + 15 && player.vy >= 0;
+    const verticalCheck =
+      feetY >= headY - 5 && feetY <= headY + 15 && player.vy >= 0;
 
     const horizontalOverlap =
       player.x + player.width > otherPlayer.x + 10 &&
@@ -81,7 +82,7 @@ export class PhysicsEngine {
     platforms: Platform[],
     movingPlatforms: MovingPlatform[],
     fallingPlatforms: FallingPlatform[],
-    canvasHeight: number
+    canvasHeight: number,
   ): void {
     if (player.dead) return;
 
@@ -130,7 +131,7 @@ export class PhysicsEngine {
       platforms,
       movingPlatforms,
       fallingPlatforms,
-      canvasHeight
+      canvasHeight,
     );
 
     // Prevent going off left edge
@@ -140,30 +141,34 @@ export class PhysicsEngine {
   }
 
   private handlePlayerInput(player: Player): void {
-  // 1. Get the abstract movement states for THIS specific player
-  const moveLeft = this.inputHandler.isKeyPressed(player.id, 'left');
-  const moveRight = this.inputHandler.isKeyPressed(player.id, 'right');
-  const jump = this.inputHandler.isKeyPressed(player.id, 'jump');
+    // 1. Get the abstract movement states for THIS specific player
+    const moveLeft = this.inputHandler.isKeyPressed("Left");
+    const moveRight = this.inputHandler.isKeyPressed("Right");
+    const jump = this.inputHandler.isKeyPressed("Jump");
 
-  // 2. Handle Horizontal Movement
-  if (moveLeft) {
-    player.vx = -MOVE_SPEED;
-    player.facingRight = false;
-  } else if (moveRight) {
-    player.vx = MOVE_SPEED;
-    player.facingRight = true;
-  } else {
-    player.vx = 0;
+    // 2. Handle Horizontal Movement
+    if (moveLeft) {
+      player.vx = -MOVE_SPEED;
+      player.facingRight = false;
+    } else if (moveRight) {
+      player.vx = MOVE_SPEED;
+      player.facingRight = true;
+    } else {
+      player.vx = 0;
+    }
+
+    // 3. Handle Jumping
+    if (jump && player.onGround) {
+      player.vy = JUMP_FORCE;
+      player.onGround = false;
+    }
   }
 
-  // 3. Handle Jumping
-  if (jump && player.onGround) {
-    player.vy = JUMP_FORCE;
-    player.onGround = false;
-  }
-}
-
-  private handlePlayerCollisions(player: Player, playerIndex: number, players: Player[]): void {
+  private handlePlayerCollisions(
+    player: Player,
+    playerIndex: number,
+    players: Player[],
+  ): void {
     players.forEach((otherPlayer, otherIndex) => {
       if (playerIndex === otherIndex || otherPlayer.dead) return;
       if (
@@ -198,7 +203,10 @@ export class PhysicsEngine {
             otherPlayer.x -= separation;
 
             if (player.vx < 0) {
-              otherPlayer.vx = Math.max(otherPlayer.vx - pushForce, -MOVE_SPEED);
+              otherPlayer.vx = Math.max(
+                otherPlayer.vx - pushForce,
+                -MOVE_SPEED,
+              );
             }
           }
         }
@@ -211,7 +219,7 @@ export class PhysicsEngine {
     platforms: Platform[],
     movingPlatforms: MovingPlatform[],
     fallingPlatforms: FallingPlatform[],
-    canvasHeight: number
+    canvasHeight: number,
   ): void {
     const allPlatforms: Platform[] = [
       ...platforms,
@@ -238,7 +246,7 @@ export class PhysicsEngine {
             const fallingPlatform = fallingPlatforms.find(
               (fp) =>
                 fp.x === platform.x &&
-                fp.originalY === (platform as FallingPlatform).originalY
+                fp.originalY === (platform as FallingPlatform).originalY,
             );
             if (fallingPlatform && !fallingPlatform.falling) {
               fallingPlatform.falling = true;
