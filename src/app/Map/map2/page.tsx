@@ -69,7 +69,8 @@ interface JoinDeniedPayload {
 
 interface JoinSuccessPayload {
   roomCode: string;
-  playerId: string;
+  playerId: string | number;
+  playerIndex?: number;
 }
 interface GameImages {
   [key: string]: HTMLImageElement;
@@ -80,6 +81,10 @@ const World2 = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const gameImages = useRef<GameImages | null>(null);
+  const localPlayerSlotRef = useRef(1);
+  const joinRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const joinRetryCountRef = useRef(0);
+  const rejoinAfterCreateRef = useRef(false);
 
   // Socket state
   const socketRef = useRef<Socket | null>(null);
@@ -87,6 +92,7 @@ const World2 = () => {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [connectionError, setConnectionError] = useState("");
   const [roomCode, setRoomCode] = useState("");
+  const recreateTriedRef = useRef(false);
 
   // Game state
   const [gameState, setGameState] = useState<GameState>({
@@ -203,14 +209,17 @@ const World2 = () => {
     const SERVER_URL =
       process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
     const maxReconnectAttempts = 5;
+    const maxJoinRetryAttempts = 8;
     const reconnectAttempts = { current: 0 };
 
     const rc = localStorage.getItem("roomCode")?.trim();
     const pid = localStorage.getItem("playerId")?.trim();
+    const isHost = localStorage.getItem("isHost") === "true";
+    const maxPlayers = Number(localStorage.getItem("maxPlayers") ?? 2);
 
     if (!rc || !pid) {
       console.warn("⚠️ Missing room code or player ID");
-      router.push("/Home-page/Multiplayer/Lobby");
+      router.push("/Home-page/Multiplayer");
       return;
     }
 
@@ -272,12 +281,26 @@ const World2 = () => {
       }
     };
 
+    const onRoomState = () => {
+      // Avoid join loops. Re-join only once after host-side room recreation.
+      joinRetryCountRef.current = 0;
+      if (joinRetryTimerRef.current) {
+        clearTimeout(joinRetryTimerRef.current);
+        joinRetryTimerRef.current = null;
+      }
+      if (recreateTriedRef.current && !rejoinAfterCreateRef.current) {
+        rejoinAfterCreateRef.current = true;
+        s.emit("joinRoom", { roomCode: rc, playerId: pid });
+      }
+    };
+
     s.on("connect", () => {
       console.log("✅ Connected to server with ID:", s.id);
       setIsConnected(true);
       setIsReconnecting(false);
       setConnectionError("");
       reconnectAttempts.current = 0;
+      joinRetryCountRef.current = 0;
 
       console.log("📤 Emitting joinRoom:", { roomCode: rc, playerId: pid });
       s.emit("joinRoom", { roomCode: rc, playerId: pid });
@@ -322,6 +345,7 @@ const World2 = () => {
       setIsReconnecting(false);
       setConnectionError("");
       reconnectAttempts.current = 0;
+      joinRetryCountRef.current = 0;
       s.emit("joinRoom", { roomCode: rc, playerId: pid });
     });
 
@@ -332,7 +356,7 @@ const World2 = () => {
 
       setTimeout(() => {
         if (confirm("Серверт холбогдож чадсангүй. Lobby руу буцах уу?")) {
-          router.push("/Home-page/Multiplayer/Lobby");
+          router.push("/Home-page/Multiplayer");
         }
       }, 1000);
     });
@@ -342,21 +366,76 @@ const World2 = () => {
     });
 
     s.on("gameState", onState);
-    s.on("roomState", onState);
+    s.on("roomState", onRoomState);
 
-    s.on("joinDenied", (data: JoinDeniedPayload) => {
-      console.error("❌ Join denied:", data.message);
-      alert(data.message || "Өрөөнд нэвтрэх боломжгүй");
-      router.push("/Home-page/Multiplayer/Lobby");
+    s.on("joinDenied", (data: JoinDeniedPayload | string) => {
+      const message =
+        typeof data === "string"
+          ? data
+          : (data?.message ?? "Өрөөнд нэвтрэх боломжгүй");
+
+      const shouldRecoverAsHost =
+        isHost &&
+        !recreateTriedRef.current &&
+        /room not found/i.test(message) &&
+        Boolean(rc) &&
+        Boolean(pid);
+
+      if (shouldRecoverAsHost) {
+        recreateTriedRef.current = true;
+        rejoinAfterCreateRef.current = false;
+        s.emit("createRoom", {
+          roomCode: rc,
+          maxPlayers: Number.isFinite(maxPlayers) ? maxPlayers : 2,
+          hostId: pid,
+        });
+        return;
+      }
+
+      if (/room not found/i.test(message)) {
+        if (joinRetryCountRef.current < maxJoinRetryAttempts) {
+          joinRetryCountRef.current += 1;
+          setConnectionError(
+            `Room syncing... retrying (${joinRetryCountRef.current}/${maxJoinRetryAttempts})`,
+          );
+          if (joinRetryTimerRef.current) clearTimeout(joinRetryTimerRef.current);
+          joinRetryTimerRef.current = setTimeout(() => {
+            s.emit("joinRoom", { roomCode: rc, playerId: pid });
+          }, 600);
+          return;
+        }
+
+        setConnectionError("Room not found. Returning to lobby...");
+        setTimeout(() => router.push("/Home-page/Lobby/join-lobby"), 900);
+        return;
+      }
+
+      console.error("❌ Join denied:", message);
+      setConnectionError(message);
+      setTimeout(() => router.push("/Home-page/Lobby/join-lobby"), 900);
     });
 
     s.on("joinSuccess", (data: JoinSuccessPayload) => {
       console.log("✅ Successfully joined room:", data);
+      const numericId = Number(data?.playerIndex ?? data?.playerId);
+      if (Number.isFinite(numericId) && numericId >= 1 && numericId <= 4) {
+        localPlayerSlotRef.current = numericId;
+      }
+      joinRetryCountRef.current = 0;
+      if (joinRetryTimerRef.current) {
+        clearTimeout(joinRetryTimerRef.current);
+        joinRetryTimerRef.current = null;
+      }
+      setConnectionError("");
     });
 
     return () => {
       if (winTimerRef.current) {
         clearTimeout(winTimerRef.current);
+      }
+      if (joinRetryTimerRef.current) {
+        clearTimeout(joinRetryTimerRef.current);
+        joinRetryTimerRef.current = null;
       }
       s.off("connect");
       s.off("connect_error");
@@ -378,10 +457,8 @@ const World2 = () => {
    */
   useEffect(() => {
     const handler = inputHandler.current;
-
-    // Сүүлд илгээсэн input-ыг хадгалах (давхардал илгээхгүй байхын тулд)
-    let lastSentInput = { left: false, right: false, jump: false };
     let rafId: number | null = null;
+    let tickId: ReturnType<typeof setInterval> | null = null;
 
     // Серверт input илгээх функц
     const sendInputToServer = () => {
@@ -390,16 +467,14 @@ const World2 = () => {
       const pid = localStorage.getItem("playerId");
       if (!pid) return;
 
-      const playerInput = handler.getPlayerInput(parseInt(pid));
+      const playerInput = handler.getUniversalInput();
 
-      // Зөвхөн өөрчлөлт байвал илгээх (bandwidth хэмнэх)
-      if (JSON.stringify(playerInput) !== JSON.stringify(lastSentInput)) {
-        socketRef.current.emit("playerMove", {
-          playerId: pid,
-          input: playerInput,
-        });
-        lastSentInput = { ...playerInput };
-      }
+      // Send continuously so backend physics/collision updates every tick.
+      socketRef.current.emit("playerInput", playerInput);
+      socketRef.current.emit("playerMove", {
+        playerId: pid,
+        input: playerInput,
+      });
     };
 
     // RequestAnimationFrame ашиглан debounce хийх
@@ -426,10 +501,12 @@ const World2 = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    tickId = setInterval(sendInputToServer, 1000 / 30);
 
     return () => {
       // Cleanup
       if (rafId) cancelAnimationFrame(rafId);
+      if (tickId) clearInterval(tickId);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       handler.clear(); // Бүх товчлуурыг цэвэрлэх
@@ -536,7 +613,7 @@ const World2 = () => {
           </div>
           <div className="text-white text-xl mb-4">{connectionError}</div>
           <button
-            onClick={() => router.push("/Home-page/Multiplayer/Lobby")}
+            onClick={() => router.push("/Home-page/Multiplayer")}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg"
           >
             Back to Lobby

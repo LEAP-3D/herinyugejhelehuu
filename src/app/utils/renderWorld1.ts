@@ -230,16 +230,46 @@ export class Renderer {
       if (player.dead) return;
 
       let playerImage: HTMLImageElement | null = null;
+      const playerId = Number(player.id);
+      const hero = typeof player.hero === "string" ? player.hero : "";
 
-      if (player.id === 1) {
+      if (hero === "finn") {
+        playerImage =
+          player.animFrame === 0
+            ? images.player1Idle
+            : player.facingRight
+              ? images.player1Right
+              : images.player1Left;
+      } else if (hero === "ice") {
+        playerImage =
+          player.animFrame === 0
+            ? images.player2Idle
+            : player.facingRight
+              ? images.player2Right
+              : images.player2Left;
+      } else if (hero === "jake") {
+        playerImage =
+          player.animFrame === 0
+            ? images.player3Idle
+            : player.facingRight
+              ? images.player3Right
+              : images.player3Left;
+      } else if (hero === "bmo") {
+        playerImage =
+          player.animFrame === 0
+            ? images.player4Idle
+            : player.facingRight
+              ? images.player4Right
+              : images.player4Left;
+      } else if (playerId === 1) {
         if (player.animFrame === 0) {
           playerImage = images.player1Idle;
         } else {
           playerImage = player.facingRight
             ? images.player1Right
-            : images.player2Right;
+            : images.player1Left;
         }
-      } else if (player.id === 2) {
+      } else if (playerId === 2) {
         if (player.animFrame === 0) {
           playerImage = images.player2Idle;
         } else {
@@ -247,7 +277,7 @@ export class Renderer {
             ? images.player2Right
             : images.player2Left;
         }
-      } else if (player.id === 3) {
+      } else if (playerId === 3) {
         if (player.animFrame === 0) {
           playerImage = images.player3Idle;
         } else {
@@ -255,7 +285,7 @@ export class Renderer {
             ? images.player3Right
             : images.player3Left;
         }
-      } else if (player.id === 4) {
+      } else if (playerId === 4) {
         if (player.animFrame === 0) {
           playerImage = images.player4Idle;
         } else {
@@ -282,13 +312,67 @@ export class Renderer {
         this.ctx.font = "bold 14px Arial";
         this.ctx.textAlign = "center";
         this.ctx.fillText(
-          `P${player.id}`,
+          `P${playerId || "?"}`,
+          player.x + player.width / 2,
+          player.y - 10,
+        );
+      } else {
+        // Fallback draw so players remain visible even if id typing/image lookup fails.
+        this.ctx.fillStyle = player.color || "#ff4d4f";
+        this.ctx.fillRect(player.x, player.y, player.width, player.height);
+        this.ctx.fillStyle = "#fff";
+        this.ctx.font = "bold 14px Arial";
+        this.ctx.textAlign = "center";
+        this.ctx.fillText(
+          `P${playerId || "?"}`,
           player.x + player.width / 2,
           player.y - 10,
         );
       }
     });
 
+    this.ctx.restore();
+  }
+
+  renderTethers(players: Player[], camera: Camera, maxDistance = 320): void {
+    if (players.length < 2) return;
+
+    const sorted = [...players].sort((a, b) => a.x - b.x);
+
+    this.ctx.save();
+    this.ctx.translate(-camera.x, 0);
+    this.ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    this.ctx.lineWidth = 2;
+    this.ctx.setLineDash([8, 6]);
+
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const a = sorted[i];
+      const b = sorted[i + 1];
+      const ax = a.x + a.width / 2;
+      const ay = a.y + a.height / 2;
+      const bx = b.x + b.width / 2;
+      const by = b.y + b.height / 2;
+
+      const dx = bx - ax;
+      const dy = by - ay;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(ax, ay);
+      this.ctx.lineTo(bx, by);
+      this.ctx.stroke();
+
+      if (dist > maxDistance) {
+        const mx = (ax + bx) / 2;
+        const my = (ay + by) / 2 - 10;
+        this.ctx.fillStyle = "#ff6b6b";
+        this.ctx.font = "bold 12px Arial";
+        this.ctx.textAlign = "center";
+        this.ctx.fillText("TETHER", mx, my);
+      }
+    }
+
+    this.ctx.setLineDash([]);
     this.ctx.restore();
   }
 

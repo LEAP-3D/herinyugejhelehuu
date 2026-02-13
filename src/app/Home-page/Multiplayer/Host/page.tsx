@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { io, type Socket } from "socket.io-client";
 import { isRoomState } from "@/types/room";
@@ -19,14 +19,24 @@ export default function HostPage() {
   const [err, setErr] = useState("");
   const [roomCodeUi, setRoomCodeUi] = useState("");
 
-  // ✅ add this (so RoomState is used)
   const [roomState, setRoomState] = useState<RoomState | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
+  const createTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const createResolvedRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (createTimerRef.current) clearTimeout(createTimerRef.current);
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
 
   const createRoom = async () => {
     setErr("");
     setLoading(true);
+    createResolvedRef.current = false;
 
     const roomCode = genRoomCode();
     const hostId = crypto.randomUUID();
@@ -41,20 +51,30 @@ export default function HostPage() {
       socketRef.current.disconnect();
       socketRef.current = null;
     }
-    console.log(process.env.SOCKET_URL, "sda");
-  const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:4000";
 
-const socket = io(SOCKET_URL, {
-  transports: ["websocket"],
-});
+    if (createTimerRef.current) clearTimeout(createTimerRef.current);
 
+    const SOCKET_URL =
+      process.env.NEXT_PUBLIC_BACKEND_URL ??
+      process.env.NEXT_PUBLIC_SOCKET_URL ??
+      "http://localhost:4000";
+
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      timeout: 10000,
+      reconnection: false,
+      withCredentials: true,
+    });
 
     socketRef.current = socket;
 
     const fail = (msg: string) => {
+      if (createResolvedRef.current) return;
+      createResolvedRef.current = true;
+      if (createTimerRef.current) clearTimeout(createTimerRef.current);
       setErr(msg);
       setLoading(false);
+      socket.disconnect();
     };
 
     socket.on("connect", () => {
@@ -80,19 +100,18 @@ const socket = io(SOCKET_URL, {
       console.log("📦 roomState:", data);
       if (!isRoomState(data)) return;
 
-      // ✅ add this (now RoomState is actually used)
+      if (createResolvedRef.current) return;
+      createResolvedRef.current = true;
+      if (createTimerRef.current) clearTimeout(createTimerRef.current);
       setRoomState(data);
-
       setRoomCodeUi(`#${roomCode}`);
       setLoading(false);
-      router.push("/Home-page/Lobby/Host-Lobby");
+      router.push("/Home-page/Lobby/join-lobby");
     });
 
-    setTimeout(() => {
-      if (!roomCodeUi && socketRef.current?.connected) {
-        fail("roomState ирсэнгүй. Backend дээр emit хийж байна уу шалга.");
-      }
-    }, 5000);
+    createTimerRef.current = setTimeout(() => {
+      fail("Connection timeout. Please try again.");
+    }, 12000);
   };
 
   const pillClass = (active: boolean) =>

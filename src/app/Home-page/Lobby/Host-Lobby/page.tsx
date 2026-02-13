@@ -98,7 +98,7 @@ const World1Multiplayer = () => {
 
     if (!rc || !pid) {
       console.warn("⚠️ Missing room code or player ID");
-      router.push("/Home-page/Multiplayer/Lobby");
+      router.push("/Home-page/Multiplayer");
       return;
     }
 
@@ -220,7 +220,7 @@ const World1Multiplayer = () => {
 
       setTimeout(() => {
         if (confirm("Серверт холбогдож чадсангүй. Lobby руу буцах уу?")) {
-          router.push("/Home-page/Multiplayer/Lobby");
+          router.push("/Home-page/Multiplayer");
         }
       }, 1000);
     });
@@ -230,12 +230,11 @@ const World1Multiplayer = () => {
     });
 
     s.on("gameState", onState);
-    s.on("roomState", onState);
 
     s.on("joinDenied", (data: JoinDeniedPayload) => {
       console.error("❌ Join denied:", data.message);
       alert(data.message || "Өрөөнд нэвтрэх боломжгүй");
-      router.push("/Home-page/Multiplayer/Lobby");
+      router.push("/Home-page/Multiplayer");
     });
 
     s.on("joinSuccess", (data: JoinSuccessPayload) => {
@@ -254,7 +253,6 @@ const World1Multiplayer = () => {
       s.off("reconnect_failed");
       s.off("error");
       s.off("gameState");
-      s.off("roomState");
       s.off("joinDenied");
       s.off("joinSuccess");
       s.disconnect();
@@ -333,10 +331,8 @@ const World1Multiplayer = () => {
    */
   useEffect(() => {
     const handler = inputHandler.current;
-
-    // Сүүлд илгээсэн input-ыг хадгалах
-    let lastSentInput = { left: false, right: false, jump: false };
     let rafId: number | null = null;
+    let tickId: ReturnType<typeof setInterval> | null = null;
 
     // Серверт input илгээх функц
     const sendInputToServer = () => {
@@ -345,16 +341,10 @@ const World1Multiplayer = () => {
       const pid = localStorage.getItem("playerId");
       if (!pid) return;
 
-      const playerInput = handler.getPlayerInput(parseInt(pid));
+      const playerInput = handler.getUniversalInput();
 
-      // Зөвхөн өөрчлөлт байвал илгээх
-      if (JSON.stringify(playerInput) !== JSON.stringify(lastSentInput)) {
-        socketRef.current.emit("playerMove", {
-          playerId: pid,
-          input: playerInput,
-        });
-        lastSentInput = { ...playerInput };
-      }
+      // Send continuously so backend physics/collision updates every tick.
+      socketRef.current.emit("playerInput", playerInput);
     };
 
     // RequestAnimationFrame ашиглан debounce хийх
@@ -375,9 +365,11 @@ const World1Multiplayer = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    tickId = setInterval(sendInputToServer, 1000 / 30);
 
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
+      if (tickId) clearInterval(tickId);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
 
@@ -486,7 +478,7 @@ const World1Multiplayer = () => {
           </h2>
           <p className="text-gray-700 mb-6">{connectionError}</p>
           <button
-            onClick={() => router.push("/Home-page/Multiplayer/Lobby")}
+            onClick={() => router.push("/Home-page/Multiplayer")}
             className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-all"
           >
             Back to Lobby
