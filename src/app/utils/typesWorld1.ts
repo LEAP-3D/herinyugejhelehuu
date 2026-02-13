@@ -1,5 +1,6 @@
 export interface Player {
-  id: number;
+  id: number | string;
+  hero?: string | null;
   x: number;
   y: number;
   vx: number;
@@ -69,12 +70,13 @@ export interface JoinDeniedPayload {
 
 export interface JoinSuccessPayload {
   roomCode: string;
-  playerId: number; // ✅ number
-  playerCount: number;
+  playerId: string | number;
+  playerIndex?: number;
+  playerCount?: number;
 }
 
 export interface GameState {
-  players: Record<number, Player>; // ✅ number key
+  players: Record<string, Player>;
   keyCollected: boolean;
   playersAtDoor: number[];
   gameStatus: "waiting" | "playing" | "won" | "dead";

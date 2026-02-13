@@ -6,7 +6,9 @@ import { io } from "socket.io-client";
 import { isRoomState } from "@/types/room";
 
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:4000";
+  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  process.env.NEXT_PUBLIC_SOCKET_URL ??
+  "http://localhost:4000";
 
 export default function JoinPage() {
   const router = useRouter();
@@ -27,29 +29,55 @@ export default function JoinPage() {
     setLoading(true);
 
     const playerId = crypto.randomUUID();
-    const socket = io(SOCKET_URL, { transports: ["websocket"] });
+    let resolved = false;
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      timeout: 10000,
+      reconnection: false,
+      withCredentials: true,
+    });
 
-    // 👉 join request
-    socket.emit("joinRoom", { roomCode: clean, playerId });
+    const finishWithError = (message: string) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(joinTimer);
+      setErr(message);
+      setLoading(false);
+      socket.disconnect();
+    };
+
+    const joinTimer = setTimeout(() => {
+      finishWithError("Connection timeout. Please try again.");
+    }, 12000);
+
+    socket.on("connect", () => {
+      socket.emit("joinRoom", { roomCode: clean, playerId });
+    });
+
+    socket.on("connect_error", (e: { message?: string }) => {
+      finishWithError(e?.message ?? "Socket connection failed");
+    });
 
     // ❌ join амжилтгүй
     socket.on("joinDenied", (e: { message?: string }) => {
-      setErr(e?.message ?? "Join denied");
-      setLoading(false);
-      socket.disconnect();
+      finishWithError(e?.message ?? "Join denied");
     });
 
     // ✅ join амжилттай (roomState ирвэл)
     socket.on("roomState", (data: unknown) => {
       if (!isRoomState(data)) return;
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(joinTimer);
 
       // localStorage хадгална
       localStorage.setItem("roomCode", clean);
       localStorage.setItem("playerId", playerId);
       localStorage.setItem("isHost", "false");
+      localStorage.setItem("maxPlayers", String(data.maxPlayers));
 
       socket.disconnect();
-      router.push("/Home-page/Lobby/Host-Lobby");
+      router.push("/Home-page/Lobby/join-lobby");
     });
   };
 

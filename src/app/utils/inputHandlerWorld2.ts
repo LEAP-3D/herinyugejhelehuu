@@ -62,6 +62,22 @@ export class InputHandler {
     }
   }
 
+  // Single local player input that works regardless of assigned slot.
+  getUniversalInput(): {
+    left: boolean;
+    right: boolean;
+    jump: boolean;
+  } {
+    const left = this.isKeyPressed("a") || this.isKeyPressed("arrowleft");
+    const right = this.isKeyPressed("d") || this.isKeyPressed("arrowright");
+    const jump =
+      this.isKeyPressed("w") ||
+      this.isKeyPressed("arrowup") ||
+      this.isKeyPressed(" ");
+
+    return { left, right, jump };
+  }
+
   // Clear all pressed keys
   clear(): void {
     this.keyPressed.clear();

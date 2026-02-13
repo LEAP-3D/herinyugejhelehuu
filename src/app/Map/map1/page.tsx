@@ -41,7 +41,6 @@ const World1Multiplayer = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [connectionError, setConnectionError] = useState("");
-  const [roomCode, setRoomCode] = useState("");
   const [gameState, setGameState] = useState<GameState>({
     players: {},
     keyCollected: false,
@@ -59,6 +58,12 @@ const World1Multiplayer = () => {
   const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const deathTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const gameImages = useRef<GameImages | null>(null);
+  const recreateTriedRef = useRef(false);
+  const rejoinAfterCreateRef = useRef(false);
+  const localPlayerSlotRef = useRef(1);
+  const joinRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const joinRetryCountRef = useRef(0);
+  const playerHeroByIdRef = useRef<Record<string, string>>({});
 
   // Game systems
   const cameraController = useRef(new CameraController());
@@ -84,6 +89,40 @@ const World1Multiplayer = () => {
     return currentWorld < maxWorlds ? currentWorld + 1 : null;
   };
 
+  const applyTetherConstraint = useCallback((players: GameState["players"]) => {
+    const arr = Object.values(players).map((p) => ({ ...p }));
+    if (arr.length < 2) return arr;
+
+    const maxTetherDistance = 320;
+    const minX = 0;
+    const maxX = 5950;
+
+    // Relax overly stretched team by pulling neighbors toward each other.
+    for (let pass = 0; pass < 2; pass++) {
+      const sorted = [...arr].sort((a, b) => a.x - b.x);
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const a = sorted[i];
+        const b = sorted[i + 1];
+        const ac = a.x + a.width / 2;
+        const bc = b.x + b.width / 2;
+        const distance = bc - ac;
+
+        if (distance <= maxTetherDistance) continue;
+
+        const pull = (distance - maxTetherDistance) / 2;
+        a.x += pull;
+        b.x -= pull;
+      }
+    }
+
+    arr.forEach((p) => {
+      if (p.x < minX) p.x = minX;
+      if (p.x > maxX) p.x = maxX;
+    });
+
+    return arr;
+  }, []);
+
   /**
    * ✅ SOCKET CONNECTION
    */
@@ -91,19 +130,19 @@ const World1Multiplayer = () => {
     const SERVER_URL =
       process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
     const maxReconnectAttempts = 5;
+    const maxJoinRetryAttempts = 8;
     const reconnectAttempts = { current: 0 };
 
     const rc = localStorage.getItem("roomCode")?.trim();
     const pid = localStorage.getItem("playerId")?.trim();
+    const isHost = localStorage.getItem("isHost") === "true";
+    const maxPlayers = Number(localStorage.getItem("maxPlayers") ?? 2);
 
     if (!rc || !pid) {
       console.warn("⚠️ Missing room code or player ID");
-      router.push("/Home-page/Multiplayer/Lobby");
+      router.push("/Home-page/Multiplayer");
       return;
     }
-
-    setRoomCode(rc);
-
     console.log("Attempting to connect to:", SERVER_URL);
     console.log("Room Code:", rc, "| Player ID:", pid);
 
@@ -133,13 +172,29 @@ const World1Multiplayer = () => {
     };
 
     const onState = (state: GameState) => {
+      const mergedPlayers = Object.fromEntries(
+        Object.entries(state.players ?? {}).map(([playerKey, playerValue]) => [
+          playerKey,
+          {
+            ...playerValue,
+            hero:
+              playerValue?.hero ??
+              playerHeroByIdRef.current[playerKey] ??
+              null,
+          },
+        ]),
+      );
+
       console.log("📥 Received game state:", {
-        playerCount: Object.keys(state.players).length,
-        players: state.players,
+        playerCount: Object.keys(mergedPlayers).length,
+        players: mergedPlayers,
         status: state.gameStatus,
       });
 
-      setGameState(state);
+      setGameState({
+        ...state,
+        players: mergedPlayers,
+      });
       setConnectionError("");
       setHasKey(state.keyCollected);
 
@@ -160,12 +215,43 @@ const World1Multiplayer = () => {
       }
     };
 
+    const onRoomState = (state?: {
+      players?: Record<string, { hero?: string | null }>;
+    }) => {
+      // Avoid join loops. Re-join only once after host-side room recreation.
+      if (state?.players) {
+        const nextHeroes: Record<string, string> = {};
+        Object.entries(state.players).forEach(([playerKey, playerState]) => {
+          if (typeof playerState?.hero === "string" && playerState.hero) {
+            nextHeroes[playerKey] = playerState.hero;
+          }
+        });
+        if (Object.keys(nextHeroes).length > 0) {
+          playerHeroByIdRef.current = {
+            ...playerHeroByIdRef.current,
+            ...nextHeroes,
+          };
+        }
+      }
+
+      joinRetryCountRef.current = 0;
+      if (joinRetryTimerRef.current) {
+        clearTimeout(joinRetryTimerRef.current);
+        joinRetryTimerRef.current = null;
+      }
+      if (recreateTriedRef.current && !rejoinAfterCreateRef.current) {
+        rejoinAfterCreateRef.current = true;
+        s.emit("joinRoom", { roomCode: rc, playerId: pid });
+      }
+    };
+
     s.on("connect", () => {
       console.log("✅ Connected to server with ID:", s.id);
       setIsConnected(true);
       setIsReconnecting(false);
       setConnectionError("");
       reconnectAttempts.current = 0;
+      joinRetryCountRef.current = 0;
 
       console.log("📤 Emitting joinRoom:", { roomCode: rc, playerId: pid });
       s.emit("joinRoom", { roomCode: rc, playerId: pid });
@@ -210,6 +296,7 @@ const World1Multiplayer = () => {
       setIsReconnecting(false);
       setConnectionError("");
       reconnectAttempts.current = 0;
+      joinRetryCountRef.current = 0;
       s.emit("joinRoom", { roomCode: rc, playerId: pid });
     });
 
@@ -220,7 +307,7 @@ const World1Multiplayer = () => {
 
       setTimeout(() => {
         if (confirm("Серверт холбогдож чадсангүй. Lobby руу буцах уу?")) {
-          router.push("/Home-page/Multiplayer/Lobby");
+          router.push("/Home-page/Multiplayer");
         }
       }, 1000);
     });
@@ -230,21 +317,76 @@ const World1Multiplayer = () => {
     });
 
     s.on("gameState", onState);
-    s.on("roomState", onState);
+    s.on("roomState", onRoomState);
 
-    s.on("joinDenied", (data: JoinDeniedPayload) => {
-      console.error("❌ Join denied:", data.message);
-      alert(data.message || "Өрөөнд нэвтрэх боломжгүй");
-      router.push("/Home-page/Multiplayer/Lobby");
+    s.on("joinDenied", (data: JoinDeniedPayload | string) => {
+      const message =
+        typeof data === "string"
+          ? data
+          : (data?.message ?? "Өрөөнд нэвтрэх боломжгүй");
+
+      const shouldRecoverAsHost =
+        isHost &&
+        !recreateTriedRef.current &&
+        /room not found/i.test(message) &&
+        Boolean(rc) &&
+        Boolean(pid);
+
+      if (shouldRecoverAsHost) {
+        recreateTriedRef.current = true;
+        rejoinAfterCreateRef.current = false;
+        s.emit("createRoom", {
+          roomCode: rc,
+          maxPlayers: Number.isFinite(maxPlayers) ? maxPlayers : 2,
+          hostId: pid,
+        });
+        return;
+      }
+
+      if (/room not found/i.test(message)) {
+        if (joinRetryCountRef.current < maxJoinRetryAttempts) {
+          joinRetryCountRef.current += 1;
+          setConnectionError(
+            `Room syncing... retrying (${joinRetryCountRef.current}/${maxJoinRetryAttempts})`,
+          );
+          if (joinRetryTimerRef.current) clearTimeout(joinRetryTimerRef.current);
+          joinRetryTimerRef.current = setTimeout(() => {
+            s.emit("joinRoom", { roomCode: rc, playerId: pid });
+          }, 600);
+          return;
+        }
+
+        setConnectionError("Room not found. Returning to lobby...");
+        setTimeout(() => router.push("/Home-page/Lobby/join-lobby"), 900);
+        return;
+      }
+
+      console.error("❌ Join denied:", message);
+      setConnectionError(message);
+      setTimeout(() => router.push("/Home-page/Lobby/join-lobby"), 900);
     });
 
     s.on("joinSuccess", (data: JoinSuccessPayload) => {
       console.log("✅ Successfully joined room:", data);
+      const numericId = Number(data?.playerIndex ?? data?.playerId);
+      if (Number.isFinite(numericId) && numericId >= 1 && numericId <= 4) {
+        localPlayerSlotRef.current = numericId;
+      }
+      joinRetryCountRef.current = 0;
+      if (joinRetryTimerRef.current) {
+        clearTimeout(joinRetryTimerRef.current);
+        joinRetryTimerRef.current = null;
+      }
+      setConnectionError("");
     });
 
     return () => {
       if (winTimerRef.current) {
         clearTimeout(winTimerRef.current);
+      }
+      if (joinRetryTimerRef.current) {
+        clearTimeout(joinRetryTimerRef.current);
+        joinRetryTimerRef.current = null;
       }
       s.off("connect");
       s.off("connect_error");
@@ -333,10 +475,8 @@ const World1Multiplayer = () => {
    */
   useEffect(() => {
     const handler = inputHandler.current;
-
-    // Сүүлд илгээсэн input-ыг хадгалах
-    let lastSentInput = { left: false, right: false, jump: false };
     let rafId: number | null = null;
+    let tickId: ReturnType<typeof setInterval> | null = null;
 
     // Серверт input илгээх функц
     const sendInputToServer = () => {
@@ -345,16 +485,14 @@ const World1Multiplayer = () => {
       const pid = localStorage.getItem("playerId");
       if (!pid) return;
 
-      const playerInput = handler.getPlayerInput(parseInt(pid));
+      const playerInput = handler.getUniversalInput();
 
-      // Зөвхөн өөрчлөлт байвал илгээх
-      if (JSON.stringify(playerInput) !== JSON.stringify(lastSentInput)) {
-        socketRef.current.emit("playerMove", {
-          playerId: pid,
-          input: playerInput,
-        });
-        lastSentInput = { ...playerInput };
-      }
+      // Send continuously so backend physics/collision updates every tick.
+      socketRef.current.emit("playerInput", playerInput);
+      socketRef.current.emit("playerMove", {
+        playerId: pid,
+        input: playerInput,
+      });
     };
 
     // RequestAnimationFrame ашиглан debounce хийх
@@ -375,9 +513,11 @@ const World1Multiplayer = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    tickId = setInterval(sendInputToServer, 1000 / 30);
 
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
+      if (tickId) clearInterval(tickId);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
 
@@ -395,7 +535,7 @@ const World1Multiplayer = () => {
   const gameLoop = useCallback(() => {
     if (!renderer.current || !gameImages.current) return;
 
-    const players = Object.values(gameState.players);
+    const players = applyTetherConstraint(gameState.players);
     const platforms = platformsRef.current;
     const movingPlatforms = movingPlatformsRef.current;
     const fallingPlatforms = fallingPlatformsRef.current;
@@ -434,13 +574,14 @@ const World1Multiplayer = () => {
       gameImages.current,
       camera,
     );
+    renderer.current.renderTethers(players, camera);
     renderer.current.renderPlayers(players, gameImages.current, camera);
     renderer.current.renderHUD(hasKey, gameState.playersAtDoor.length);
     renderer.current.renderControls();
     if (gameState.gameStatus === "dead") {
       renderer.current.renderDeathScreen(gameImages.current);
     }
-  }, [gameState, canvasSize, hasKey]);
+  }, [gameState, canvasSize, hasKey, applyTetherConstraint]);
 
   useEffect(() => {
     if (!imagesLoaded) return;
@@ -486,7 +627,7 @@ const World1Multiplayer = () => {
           </h2>
           <p className="text-gray-700 mb-6">{connectionError}</p>
           <button
-            onClick={() => router.push("/Home-page/Multiplayer/Lobby")}
+            onClick={() => router.push("/Home-page/Multiplayer")}
             className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-all"
           >
             Back to Lobby
@@ -495,29 +636,6 @@ const World1Multiplayer = () => {
       </div>
     );
   }
-
-  /**
-   * ✅ WAITING FOR PLAYERS - FIXED TAILWIND CLASS
-   */
-  if (gameState.gameStatus === "waiting") {
-    return (
-      <div className="w-screen h-screen flex items-center justify-center bg-linear-to-b from-blue-400 to-blue-200">
-        <div className="text-center bg-white/90 p-8 rounded-xl shadow-2xl">
-          <div className="text-6xl mb-4">⏳</div>
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">
-            Waiting for players...
-          </h2>
-          <p className="text-xl text-gray-600 mb-2">
-            Room Code: <span className="font-bold">{roomCode}</span>
-          </p>
-          <p className="text-lg text-gray-600">
-            Players: {Object.keys(gameState.players).length} / 4
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div ref={containerRef} className="w-screen h-screen overflow-hidden">
       <canvas

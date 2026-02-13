@@ -167,7 +167,8 @@ export class GameData {
   getDoor(): Door {
     return {
       x: 3030,
-      y: this.groundY - 430,
+      // Place door on the nearby high platform so it is reachable in multiplayer.
+      y: this.groundY - 165,
       width: 55,
       height: 75,
     };
