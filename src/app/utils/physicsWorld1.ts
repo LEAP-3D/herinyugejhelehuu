@@ -114,7 +114,10 @@ export class PhysicsEngine {
         player.y = otherPlayer.y - player.height;
         player.vy = 0;
         player.onGround = true;
-        player.standingOnPlayer = otherPlayer.id;
+        const stackedOnId = Number(otherPlayer.id);
+        player.standingOnPlayer = Number.isFinite(stackedOnId)
+          ? stackedOnId
+          : null;
 
         if (otherPlayer.vx !== 0 && player.vx === 0) {
           player.x += otherPlayer.vx * 0.8;

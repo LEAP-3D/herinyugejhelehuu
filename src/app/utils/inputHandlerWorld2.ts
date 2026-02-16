@@ -68,11 +68,21 @@ export class InputHandler {
     right: boolean;
     jump: boolean;
   } {
-    const left = this.isKeyPressed("a") || this.isKeyPressed("arrowleft");
-    const right = this.isKeyPressed("d") || this.isKeyPressed("arrowright");
+    const left =
+      this.isKeyPressed("a") ||
+      this.isKeyPressed("arrowleft") ||
+      this.isKeyPressed("f") ||
+      this.isKeyPressed("j");
+    const right =
+      this.isKeyPressed("d") ||
+      this.isKeyPressed("arrowright") ||
+      this.isKeyPressed("h") ||
+      this.isKeyPressed("l");
     const jump =
       this.isKeyPressed("w") ||
       this.isKeyPressed("arrowup") ||
+      this.isKeyPressed("t") ||
+      this.isKeyPressed("i") ||
       this.isKeyPressed(" ");
 
     return { left, right, jump };
