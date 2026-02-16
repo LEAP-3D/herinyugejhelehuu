@@ -61,8 +61,8 @@ export interface Camera {
 export const GRAVITY = 0.6;
 export const JUMP_FORCE = -14;
 export const MOVE_SPEED = 5;
-export const PLAYER_WIDTH = 45;
-export const PLAYER_HEIGHT = 55;
+export const PLAYER_WIDTH = 35;
+export const PLAYER_HEIGHT = 45;
 export const DEATH_FREEZE_TIME = 1500;
 
 // Анхны тоглогчдын өгөгдөл

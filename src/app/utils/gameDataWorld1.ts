@@ -10,8 +10,11 @@ import {
 export class GameData {
   private groundY: number;
 
-  constructor(canvasHeight: number) {
-    this.groundY = canvasHeight - 80;
+  constructor(_canvasHeight: number) {
+    // Keep world coordinates fixed to backend physics world.
+    // Backend uses baseY=620 and floor platforms at y=660 (= groundY + 40 here).
+    void _canvasHeight;
+    this.groundY = 620;
   }
 
   getPlatforms(): Platform[] {

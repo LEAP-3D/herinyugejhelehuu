@@ -588,7 +588,7 @@ const World1Multiplayer = () => {
       camera,
     );
     const renderTethers = (
-      renderer.current as { renderTethers?: (...args: unknown[]) => void }
+      renderer.current as { renderTethers?: CallableFunction }
     ).renderTethers;
     if (typeof renderTethers === "function") {
       renderTethers(players, camera);
