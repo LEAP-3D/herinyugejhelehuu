@@ -146,6 +146,19 @@ const World2 = () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
       setCanvasSize({ width, height });
+      const nextGroundY = height - 80;
+      platformsRef.current = createPlatforms(nextGroundY);
+      dangerButtonsRef.current = createDangerButtons(nextGroundY);
+      keyRef.current = {
+        ...keyRef.current,
+        x: 2400,
+        y: nextGroundY - 100,
+      };
+      doorRef.current = {
+        ...doorRef.current,
+        x: 4400,
+        y: nextGroundY - 120,
+      };
     };
 
     handleResize();
@@ -468,13 +481,20 @@ const World2 = () => {
       if (!pid) return;
 
       const playerInput = handler.getUniversalInput();
+      const playerSlot = localPlayerSlotRef.current;
+      const roomCode = localStorage.getItem("roomCode");
+      const inputPayload = {
+        playerId: pid,
+        playerIndex: playerSlot,
+        roomCode,
+        keys: playerInput,
+        input: playerInput,
+        timestamp: Date.now(),
+      };
 
       // Send continuously so backend physics/collision updates every tick.
-      socketRef.current.emit("playerInput", playerInput);
-      socketRef.current.emit("playerMove", {
-        playerId: pid,
-        input: playerInput,
-      });
+      socketRef.current.emit("playerInput", inputPayload);
+      socketRef.current.emit("playerMove", inputPayload);
     };
 
     // RequestAnimationFrame ашиглан debounce хийх

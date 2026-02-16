@@ -266,6 +266,12 @@ const World1Multiplayer = () => {
       const height = window.innerHeight;
       setCanvasSize({ width, height });
       gameData.current = new GameData(height);
+      platformsRef.current = gameData.current.getPlatforms();
+      movingPlatformsRef.current = gameData.current.getMovingPlatforms();
+      fallingPlatformsRef.current = gameData.current.getFallingPlatforms();
+      cloudsRef.current = gameData.current.getClouds();
+      keyRef.current = gameData.current.getKey();
+      doorRef.current = gameData.current.getDoor();
       if (renderer.current) {
         renderer.current.updateCanvasSize(
           width,
@@ -340,11 +346,19 @@ const World1Multiplayer = () => {
 
       const pid = localStorage.getItem("playerId");
       if (!pid) return;
+      const rc = localStorage.getItem("roomCode");
 
       const playerInput = handler.getUniversalInput();
+      const inputPayload = {
+        playerId: pid,
+        roomCode: rc,
+        keys: playerInput,
+        input: playerInput,
+        timestamp: Date.now(),
+      };
 
       // Send continuously so backend physics/collision updates every tick.
-      socketRef.current.emit("playerInput", playerInput);
+      socketRef.current.emit("playerInput", inputPayload);
     };
 
     // RequestAnimationFrame ашиглан debounce хийх

@@ -335,45 +335,11 @@ export class Renderer {
   }
 
   renderTethers(players: Player[], camera: Camera, maxDistance = 320): void {
-    if (players.length < 2) return;
-
-    const sorted = [...players].sort((a, b) => a.x - b.x);
-
-    this.ctx.save();
-    this.ctx.translate(-camera.x, 0);
-    this.ctx.strokeStyle = "rgba(255,255,255,0.45)";
-    this.ctx.lineWidth = 2;
-    this.ctx.setLineDash([8, 6]);
-
-    for (let i = 0; i < sorted.length - 1; i++) {
-      const a = sorted[i];
-      const b = sorted[i + 1];
-      const ax = a.x + a.width / 2;
-      const ay = a.y + a.height / 2;
-      const bx = b.x + b.width / 2;
-      const by = b.y + b.height / 2;
-
-      const dx = bx - ax;
-      const dy = by - ay;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      this.ctx.beginPath();
-      this.ctx.moveTo(ax, ay);
-      this.ctx.lineTo(bx, by);
-      this.ctx.stroke();
-
-      if (dist > maxDistance) {
-        const mx = (ax + bx) / 2;
-        const my = (ay + by) / 2 - 10;
-        this.ctx.fillStyle = "#ff6b6b";
-        this.ctx.font = "bold 12px Arial";
-        this.ctx.textAlign = "center";
-        this.ctx.fillText("TETHER", mx, my);
-      }
-    }
-
-    this.ctx.setLineDash([]);
-    this.ctx.restore();
+    // Keep tether mechanics in physics/game state, but make visuals fully invisible.
+    void players;
+    void camera;
+    void maxDistance;
+    return;
   }
 
   renderHUD(hasKey: boolean, playersAtDoorCount: number): void {

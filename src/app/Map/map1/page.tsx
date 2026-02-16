@@ -410,6 +410,12 @@ const World1Multiplayer = () => {
       const height = window.innerHeight;
       setCanvasSize({ width, height });
       gameData.current = new GameData(height);
+      platformsRef.current = gameData.current.getPlatforms();
+      movingPlatformsRef.current = gameData.current.getMovingPlatforms();
+      fallingPlatformsRef.current = gameData.current.getFallingPlatforms();
+      cloudsRef.current = gameData.current.getClouds();
+      keyRef.current = gameData.current.getKey();
+      doorRef.current = gameData.current.getDoor();
       if (renderer.current) {
         renderer.current.updateCanvasSize(
           width,
@@ -486,13 +492,20 @@ const World1Multiplayer = () => {
       if (!pid) return;
 
       const playerInput = handler.getUniversalInput();
+      const playerSlot = localPlayerSlotRef.current;
+      const roomCode = localStorage.getItem("roomCode");
+      const inputPayload = {
+        playerId: pid,
+        playerIndex: playerSlot,
+        roomCode,
+        keys: playerInput,
+        input: playerInput,
+        timestamp: Date.now(),
+      };
 
       // Send continuously so backend physics/collision updates every tick.
-      socketRef.current.emit("playerInput", playerInput);
-      socketRef.current.emit("playerMove", {
-        playerId: pid,
-        input: playerInput,
-      });
+      socketRef.current.emit("playerInput", inputPayload);
+      socketRef.current.emit("playerMove", inputPayload);
     };
 
     // RequestAnimationFrame ашиглан debounce хийх
@@ -574,7 +587,12 @@ const World1Multiplayer = () => {
       gameImages.current,
       camera,
     );
-    renderer.current.renderTethers(players, camera);
+    const renderTethers = (
+      renderer.current as { renderTethers?: (...args: unknown[]) => void }
+    ).renderTethers;
+    if (typeof renderTethers === "function") {
+      renderTethers(players, camera);
+    }
     renderer.current.renderPlayers(players, gameImages.current, camera);
     renderer.current.renderHUD(hasKey, gameState.playersAtDoor.length);
     renderer.current.renderControls();
