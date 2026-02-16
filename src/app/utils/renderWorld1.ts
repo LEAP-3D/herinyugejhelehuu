@@ -114,7 +114,9 @@ export class Renderer {
     this.ctx.save();
     this.ctx.translate(-camera.x, 0);
     this.ctx.fillStyle = "#90EE90";
-    this.ctx.fillRect(-100, this.canvasHeight - 60, 6000, 100);
+    const groundTop = this.groundY + 40;
+    const groundHeight = Math.max(100, this.canvasHeight - groundTop + 100);
+    this.ctx.fillRect(-100, groundTop, 6000, groundHeight);
     this.ctx.restore();
   }
 
