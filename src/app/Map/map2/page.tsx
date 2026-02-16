@@ -419,13 +419,13 @@ const World2 = () => {
         }
 
         setConnectionError("Room not found. Returning to lobby...");
-        setTimeout(() => router.push("/Home-page/Lobby/join-lobby"), 900);
+        setTimeout(() => router.push("/Home-page/Lobby/Join-Lobby"), 900);
         return;
       }
 
       console.error("❌ Join denied:", message);
       setConnectionError(message);
-      setTimeout(() => router.push("/Home-page/Lobby/join-lobby"), 900);
+      setTimeout(() => router.push("/Home-page/Lobby/Join-Lobby"), 900);
     });
 
     s.on("joinSuccess", (data: JoinSuccessPayload) => {
