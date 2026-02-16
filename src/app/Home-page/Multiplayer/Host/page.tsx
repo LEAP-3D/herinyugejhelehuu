@@ -106,7 +106,7 @@ export default function HostPage() {
       setRoomState(data);
       setRoomCodeUi(`#${roomCode}`);
       setLoading(false);
-      router.push("/Home-page/Lobby/Join-Lobby");
+      router.push("/Home-page/Lobby/join-lobby");
     });
 
     createTimerRef.current = setTimeout(() => {

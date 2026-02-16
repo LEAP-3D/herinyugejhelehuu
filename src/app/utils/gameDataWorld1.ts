@@ -11,7 +11,9 @@ export class GameData {
   private groundY: number;
 
   constructor(canvasHeight: number) {
-    this.groundY = canvasHeight - 80;
+    // Keep world coordinates fixed so frontend matches backend physics map.
+    void canvasHeight;
+    this.groundY = 620;
   }
 
   getPlatforms(): Platform[] {

@@ -413,8 +413,7 @@ const World1Multiplayer = () => {
 
     physicsEngine.current.incrementAnimTimer();
     physicsEngine.current.updateClouds(clouds);
-    physicsEngine.current.updateMovingPlatforms(movingPlatforms);
-    physicsEngine.current.updateFallingPlatforms(fallingPlatforms);
+    // Keep platform transforms authoritative on backend to avoid render/collision drift.
 
     if (players.length > 0) {
       cameraController.current.updateCamera(players, canvasSize.width);

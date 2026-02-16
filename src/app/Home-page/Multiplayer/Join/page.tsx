@@ -77,7 +77,7 @@ export default function JoinPage() {
       localStorage.setItem("maxPlayers", String(data.maxPlayers));
 
       socket.disconnect();
-      router.push("/Home-page/Lobby/Join-Lobby");
+      router.push("/Home-page/Lobby/join-lobby");
     });
   };
 
