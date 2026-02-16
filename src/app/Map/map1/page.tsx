@@ -178,9 +178,7 @@ const World1Multiplayer = () => {
           {
             ...playerValue,
             hero:
-              playerValue?.hero ??
-              playerHeroByIdRef.current[playerKey] ??
-              null,
+              playerValue?.hero ?? playerHeroByIdRef.current[playerKey] ?? null,
           },
         ]),
       );
@@ -349,7 +347,8 @@ const World1Multiplayer = () => {
           setConnectionError(
             `Room syncing... retrying (${joinRetryCountRef.current}/${maxJoinRetryAttempts})`,
           );
-          if (joinRetryTimerRef.current) clearTimeout(joinRetryTimerRef.current);
+          if (joinRetryTimerRef.current)
+            clearTimeout(joinRetryTimerRef.current);
           joinRetryTimerRef.current = setTimeout(() => {
             s.emit("joinRoom", { roomCode: rc, playerId: pid });
           }, 600);
@@ -587,12 +586,7 @@ const World1Multiplayer = () => {
       gameImages.current,
       camera,
     );
-    const renderTethers = (
-      renderer.current as { renderTethers?: (...args: unknown[]) => void }
-    ).renderTethers;
-    if (typeof renderTethers === "function") {
-      renderTethers(players, camera);
-    }
+
     renderer.current.renderPlayers(players, gameImages.current, camera);
     renderer.current.renderHUD(hasKey, gameState.playersAtDoor.length);
     renderer.current.renderControls();
