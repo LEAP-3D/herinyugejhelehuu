@@ -99,8 +99,8 @@ export interface PlayerInput {
 export const GRAVITY = 0.6;
 export const JUMP_FORCE = -14;
 export const MOVE_SPEED = 5;
-export const PLAYER_WIDTH = 45;
-export const PLAYER_HEIGHT = 55;
+export const PLAYER_WIDTH = 25;
+export const PLAYER_HEIGHT = 35;
 export const DEATH_FREEZE_TIME = 1500;
 
 export interface GameImages {
