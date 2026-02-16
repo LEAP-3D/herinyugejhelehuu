@@ -90,37 +90,8 @@ const World1Multiplayer = () => {
   };
 
   const applyTetherConstraint = useCallback((players: GameState["players"]) => {
-    const arr = Object.values(players).map((p) => ({ ...p }));
-    if (arr.length < 2) return arr;
-
-    const maxTetherDistance = 320;
-    const minX = 0;
-    const maxX = 5950;
-
-    // Relax overly stretched team by pulling neighbors toward each other.
-    for (let pass = 0; pass < 2; pass++) {
-      const sorted = [...arr].sort((a, b) => a.x - b.x);
-      for (let i = 0; i < sorted.length - 1; i++) {
-        const a = sorted[i];
-        const b = sorted[i + 1];
-        const ac = a.x + a.width / 2;
-        const bc = b.x + b.width / 2;
-        const distance = bc - ac;
-
-        if (distance <= maxTetherDistance) continue;
-
-        const pull = (distance - maxTetherDistance) / 2;
-        a.x += pull;
-        b.x -= pull;
-      }
-    }
-
-    arr.forEach((p) => {
-      if (p.x < minX) p.x = minX;
-      if (p.x > maxX) p.x = maxX;
-    });
-
-    return arr;
+    // Tether mechanic disabled: use authoritative positions from server as-is.
+    return Object.values(players);
   }, []);
 
   /**
@@ -356,13 +327,13 @@ const World1Multiplayer = () => {
         }
 
         setConnectionError("Room not found. Returning to lobby...");
-        setTimeout(() => router.push("/Home-page/Lobby/Join-Lobby"), 900);
+        setTimeout(() => router.push("/Home-page/Lobby/join-lobby"), 900);
         return;
       }
 
       console.error("❌ Join denied:", message);
       setConnectionError(message);
-      setTimeout(() => router.push("/Home-page/Lobby/Join-Lobby"), 900);
+      setTimeout(() => router.push("/Home-page/Lobby/join-lobby"), 900);
     });
 
     s.on("joinSuccess", (data: JoinSuccessPayload) => {
@@ -559,8 +530,7 @@ const World1Multiplayer = () => {
 
     physicsEngine.current.incrementAnimTimer();
     physicsEngine.current.updateClouds(clouds);
-    physicsEngine.current.updateMovingPlatforms(movingPlatforms);
-    physicsEngine.current.updateFallingPlatforms(fallingPlatforms);
+    // Keep platform transforms authoritative on backend to avoid render/collision drift.
 
     if (players.length > 0) {
       cameraController.current.updateCamera(players, canvasSize.width);
