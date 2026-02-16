@@ -6,7 +6,7 @@ import {
   Key,
   Door,
 } from "@/app/utils/typesWorld1";
-
+//jhasgdj
 export class GameData {
   private groundY: number;
 
