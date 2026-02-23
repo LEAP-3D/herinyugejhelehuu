@@ -231,3 +231,4 @@ export const applyBoundaries = (player: Player): void => {
     player.x = 0;
   }
 };
+//mansbmasbdmabd
