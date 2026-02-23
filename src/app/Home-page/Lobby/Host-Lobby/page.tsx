@@ -53,6 +53,7 @@ const World1Multiplayer = () => {
   const [hasKey, setHasKey] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 700 });
   const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [localDeath, setLocalDeath] = useState(false);
 
   // Refs
   const socketRef = useRef<Socket | null>(null);
@@ -411,6 +412,14 @@ const World1Multiplayer = () => {
 
     key.collected = gameState.keyCollected;
 
+    const isDeadByWorldRules = players.some(
+      (player) => player.dead || player.y > canvasSize.height + 50,
+    );
+    const shouldShowDeath = gameState.gameStatus === "dead" || isDeadByWorldRules;
+    if (isDeadByWorldRules && !localDeath) {
+      setLocalDeath(true);
+    }
+
     physicsEngine.current.incrementAnimTimer();
     physicsEngine.current.updateClouds(clouds);
     // Keep platform transforms authoritative on backend to avoid render/collision drift.
@@ -442,10 +451,16 @@ const World1Multiplayer = () => {
     renderer.current.renderPlayers(players, gameImages.current, camera);
     renderer.current.renderHUD(hasKey, gameState.playersAtDoor.length);
     renderer.current.renderControls();
-    if (gameState.gameStatus === "dead") {
+    if (shouldShowDeath) {
       renderer.current.renderDeathScreen(gameImages.current);
     }
-  }, [gameState, canvasSize, hasKey]);
+  }, [gameState, canvasSize, hasKey, localDeath]);
+
+  useEffect(() => {
+    if (gameState.gameStatus !== "dead") {
+      setLocalDeath(false);
+    }
+  }, [gameState.gameStatus]);
 
   useEffect(() => {
     if (!imagesLoaded) return;

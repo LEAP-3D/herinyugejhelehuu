@@ -54,6 +54,10 @@ import {
   renderDeathScreen,
   updateClouds,
 } from "@/app/utils/renderWorld2";
+import {
+  checkDangerButtonCollision,
+  checkFallOffScreen,
+} from "@/app/utils/physicsWorld2";
 
 // Socket.IO types
 interface GameState {
@@ -104,6 +108,7 @@ const World2 = () => {
   const [hasKey, setHasKey] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 700 });
   const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [localDeath, setLocalDeath] = useState(false);
 
   const animTimer = useRef(0);
   const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -565,6 +570,18 @@ const World2 = () => {
     // Update key collected state
     key.collected = gameState.keyCollected;
 
+    const isDeadByWorldRules = players.some(
+      (player) =>
+        player.dead ||
+        checkDangerButtonCollision(player, dangerButtons) ||
+        checkFallOffScreen(player, canvasSize.height),
+    );
+    const shouldShowDeath = gameState.gameStatus === "dead" || isDeadByWorldRules;
+
+    if (isDeadByWorldRules && !localDeath) {
+      setLocalDeath(true);
+    }
+
     // === RENDERING ===
 
     // Background
@@ -592,10 +609,16 @@ const World2 = () => {
     renderControls(ctx, canvasSize.height);
 
     // Death screen
-    if (gameState.gameStatus === "dead") {
+    if (shouldShowDeath) {
       renderDeathScreen(ctx, canvasSize.width, canvasSize.height, images);
     }
-  }, [gameState, hasKey, canvasSize]);
+  }, [gameState, hasKey, canvasSize, localDeath]);
+
+  useEffect(() => {
+    if (gameState.gameStatus !== "dead") {
+      setLocalDeath(false);
+    }
+  }, [gameState.gameStatus]);
 
   /**
    * ✅ GAME LOOP INTERVAL
