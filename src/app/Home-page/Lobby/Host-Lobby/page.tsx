@@ -412,9 +412,13 @@ const World1Multiplayer = () => {
 
     key.collected = gameState.keyCollected;
 
-    const isDeadByWorldRules = players.some(
-      (player) => player.dead || player.y > canvasSize.height + 50,
+    const localPlayerId = localStorage.getItem("playerId")?.trim();
+    const localPlayer = players.find(
+      (player) => String(player.id) === String(localPlayerId),
     );
+    const isDeadByWorldRules = localPlayer
+      ? localPlayer.dead || localPlayer.y > canvasSize.height + 50
+      : false;
     const shouldShowDeath = gameState.gameStatus === "dead" || isDeadByWorldRules;
     if (isDeadByWorldRules && !localDeath) {
       setLocalDeath(true);

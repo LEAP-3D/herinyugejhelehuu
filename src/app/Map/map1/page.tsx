@@ -510,7 +510,6 @@ const World1Multiplayer = () => {
 
       // Send continuously so backend physics/collision updates every tick.
       socketRef.current.emit("playerInput", inputPayload);
-      socketRef.current.emit("playerMove", inputPayload);
     };
 
     // RequestAnimationFrame ашиглан debounce хийх
@@ -565,9 +564,13 @@ const World1Multiplayer = () => {
 
     key.collected = state.keyCollected;
 
-    const isDeadByWorldRules = players.some(
-      (player) => player.dead || player.y > currentCanvasSize.height + 50,
+    const localPlayerId = localStorage.getItem("playerId")?.trim();
+    const localPlayer = players.find(
+      (player) => String(player.id) === String(localPlayerId),
     );
+    const isDeadByWorldRules = localPlayer
+      ? localPlayer.dead || localPlayer.y > currentCanvasSize.height + 50
+      : false;
     const shouldShowDeath = state.gameStatus === "dead" || isDeadByWorldRules;
     if (isDeadByWorldRules && !localDeathRef.current) {
       localDeathRef.current = true;
