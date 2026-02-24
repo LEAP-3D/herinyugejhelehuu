@@ -75,6 +75,16 @@ const unlockAndPlay = () => {
   });
 };
 
+const autoStartOnOpen = () => {
+  setupMusic();
+  if (!state.audio || state.started) return;
+  state.started = true;
+  void state.audio.play().catch(() => {
+    // Browser autoplay policy may block this. Keep fallback listeners active.
+    state.started = false;
+  });
+};
+
 export default function BackgroundMusicController() {
   useEffect(() => {
     setupMusic();
@@ -115,6 +125,7 @@ export default function BackgroundMusicController() {
     window.addEventListener("storage", onSettingsChanged);
 
     applyVolume(state.audio, getAudioSettings());
+    autoStartOnOpen();
 
     return () => {
       startEvents.forEach((name) => {
