@@ -89,6 +89,7 @@ const World2 = () => {
   const joinRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const joinRetryCountRef = useRef(0);
   const rejoinAfterCreateRef = useRef(false);
+  const playerNameByIdRef = useRef<Record<string, string>>({});
 
   // Socket state
   const socketRef = useRef<Socket | null>(null);
@@ -109,6 +110,10 @@ const World2 = () => {
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 700 });
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [localDeath, setLocalDeath] = useState(false);
+  const gameStateRef = useRef(gameState);
+  const hasKeyRef = useRef(hasKey);
+  const canvasSizeRef = useRef(canvasSize);
+  const localDeathRef = useRef(localDeath);
 
   const animTimer = useRef(0);
   const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -116,6 +121,22 @@ const World2 = () => {
   const imageLoader = useRef(new ImageLoader());
 
   const groundY = canvasSize.height - 80;
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  useEffect(() => {
+    hasKeyRef.current = hasKey;
+  }, [hasKey]);
+
+  useEffect(() => {
+    canvasSizeRef.current = canvasSize;
+  }, [canvasSize]);
+
+  useEffect(() => {
+    localDeathRef.current = localDeath;
+  }, [localDeath]);
 
   // Game objects
   const platformsRef = useRef<Platform[]>(createPlatforms(groundY));
@@ -232,6 +253,7 @@ const World2 = () => {
 
     const rc = localStorage.getItem("roomCode")?.trim();
     const pid = localStorage.getItem("playerId")?.trim();
+    const playerName = localStorage.getItem("playerName")?.trim();
     const isHost = localStorage.getItem("isHost") === "true";
     const maxPlayers = Number(localStorage.getItem("maxPlayers") ?? 2);
 
@@ -272,13 +294,29 @@ const World2 = () => {
     };
 
     const onState = (state: GameState) => {
+      const mergedPlayers = Object.fromEntries(
+        Object.entries(state.players ?? {}).map(([playerKey, playerValue]) => [
+          playerKey,
+          {
+            ...playerValue,
+            name:
+              (typeof playerValue?.name === "string" && playerValue.name) ||
+              playerNameByIdRef.current[playerKey] ||
+              null,
+          },
+        ]),
+      );
+
       console.log("📥 Received game state:", {
-        playerCount: Object.keys(state.players).length,
-        players: state.players,
+        playerCount: Object.keys(mergedPlayers).length,
+        players: mergedPlayers,
         status: state.gameStatus,
       });
 
-      setGameState(state);
+      setGameState({
+        ...state,
+        players: mergedPlayers,
+      });
       setConnectionError("");
       setHasKey(state.keyCollected);
 
@@ -299,7 +337,17 @@ const World2 = () => {
       }
     };
 
-    const onRoomState = () => {
+    const onRoomState = (state?: {
+      players?: Record<string, { name?: string | null }>;
+    }) => {
+      if (state?.players) {
+        Object.entries(state.players).forEach(([playerKey, playerState]) => {
+          if (typeof playerState?.name === "string" && playerState.name.trim()) {
+            playerNameByIdRef.current[playerKey] = playerState.name.trim();
+          }
+        });
+      }
+
       // Avoid join loops. Re-join only once after host-side room recreation.
       joinRetryCountRef.current = 0;
       if (joinRetryTimerRef.current) {
@@ -308,7 +356,7 @@ const World2 = () => {
       }
       if (recreateTriedRef.current && !rejoinAfterCreateRef.current) {
         rejoinAfterCreateRef.current = true;
-        s.emit("joinRoom", { roomCode: rc, playerId: pid });
+        s.emit("joinRoom", { roomCode: rc, playerId: pid, name: playerName });
       }
     };
 
@@ -320,8 +368,12 @@ const World2 = () => {
       reconnectAttempts.current = 0;
       joinRetryCountRef.current = 0;
 
-      console.log("📤 Emitting joinRoom:", { roomCode: rc, playerId: pid });
-      s.emit("joinRoom", { roomCode: rc, playerId: pid });
+      console.log("📤 Emitting joinRoom:", {
+        roomCode: rc,
+        playerId: pid,
+        name: playerName,
+      });
+      s.emit("joinRoom", { roomCode: rc, playerId: pid, name: playerName });
     });
 
     s.on("connect_error", (error: Error) => {
@@ -364,7 +416,7 @@ const World2 = () => {
       setConnectionError("");
       reconnectAttempts.current = 0;
       joinRetryCountRef.current = 0;
-      s.emit("joinRoom", { roomCode: rc, playerId: pid });
+      s.emit("joinRoom", { roomCode: rc, playerId: pid, name: playerName });
     });
 
     s.on("reconnect_failed", () => {
@@ -406,6 +458,7 @@ const World2 = () => {
           roomCode: rc,
           maxPlayers: Number.isFinite(maxPlayers) ? maxPlayers : 2,
           hostId: pid,
+          playerName,
         });
         return;
       }
@@ -418,7 +471,7 @@ const World2 = () => {
           );
           if (joinRetryTimerRef.current) clearTimeout(joinRetryTimerRef.current);
           joinRetryTimerRef.current = setTimeout(() => {
-            s.emit("joinRoom", { roomCode: rc, playerId: pid });
+            s.emit("joinRoom", { roomCode: rc, playerId: pid, name: playerName });
           }, 600);
           return;
         }
@@ -549,7 +602,9 @@ const World2 = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const players = Object.values(gameState.players);
+    const state = gameStateRef.current;
+    const currentCanvasSize = canvasSizeRef.current;
+    const players = Object.values(state.players);
     const platforms = platformsRef.current;
     const dangerButtons = dangerButtonsRef.current;
     const clouds = cloudsRef.current;
@@ -564,40 +619,41 @@ const World2 = () => {
 
     // Update camera (follow all players)
     if (players.length > 0) {
-      updateCamera(camera, players, canvasSize.width);
+      updateCamera(camera, players, currentCanvasSize.width);
     }
 
     // Update key collected state
-    key.collected = gameState.keyCollected;
+    key.collected = state.keyCollected;
 
     const isDeadByWorldRules = players.some(
       (player) =>
         player.dead ||
         checkDangerButtonCollision(player, dangerButtons) ||
-        checkFallOffScreen(player, canvasSize.height),
+        checkFallOffScreen(player, currentCanvasSize.height),
     );
-    const shouldShowDeath = gameState.gameStatus === "dead" || isDeadByWorldRules;
+    const shouldShowDeath = state.gameStatus === "dead" || isDeadByWorldRules;
 
-    if (isDeadByWorldRules && !localDeath) {
+    if (isDeadByWorldRules && !localDeathRef.current) {
+      localDeathRef.current = true;
       setLocalDeath(true);
     }
 
     // === RENDERING ===
 
     // Background
-    renderBackground(ctx, canvasSize.width, canvasSize.height);
+    renderBackground(ctx, currentCanvasSize.width, currentCanvasSize.height);
 
     // Stars
     renderStars(ctx, animTimer.current);
 
     // Moon
-    renderMoon(ctx, canvasSize.width);
+    renderMoon(ctx, currentCanvasSize.width);
 
     // Clouds (with parallax)
     renderClouds(ctx, clouds, camera);
 
     // World objects (with camera)
-    renderGround(ctx, canvasSize.height, camera);
+    renderGround(ctx, currentCanvasSize.height, camera);
     renderPlatforms(ctx, platforms, camera);
     renderDangerButtons(ctx, dangerButtons, images, camera);
     renderDoor(ctx, door, images, camera);
@@ -605,14 +661,19 @@ const World2 = () => {
     renderPlayers(ctx, players, images, camera);
 
     // UI (no camera transform)
-    renderHUD(ctx, hasKey, gameState.playersAtDoor.length);
-    renderControls(ctx, canvasSize.height);
+    renderHUD(ctx, hasKeyRef.current, state.playersAtDoor.length);
+    renderControls(ctx, currentCanvasSize.height);
 
     // Death screen
     if (shouldShowDeath) {
-      renderDeathScreen(ctx, canvasSize.width, canvasSize.height, images);
+      renderDeathScreen(
+        ctx,
+        currentCanvasSize.width,
+        currentCanvasSize.height,
+        images,
+      );
     }
-  }, [gameState, hasKey, canvasSize, localDeath]);
+  }, []);
 
   useEffect(() => {
     if (gameState.gameStatus !== "dead") {
@@ -626,8 +687,14 @@ const World2 = () => {
   useEffect(() => {
     if (!imagesLoaded) return;
 
-    const interval = setInterval(gameLoop, 1000 / 60);
-    return () => clearInterval(interval);
+    let rafId = 0;
+    const loop = () => {
+      gameLoop();
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
   }, [gameLoop, imagesLoaded]);
 
   // Loading screen

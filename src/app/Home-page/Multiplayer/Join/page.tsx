@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { isRoomState } from "@/types/room";
@@ -14,15 +14,25 @@ export default function JoinPage() {
   const router = useRouter();
 
   const [roomCode, setRoomCode] = useState("");
+  const [playerName, setPlayerName] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setPlayerName(localStorage.getItem("playerName") ?? "");
+  }, []);
 
   const join = () => {
     setErr("");
 
     const clean = roomCode.replace("#", "").trim();
+    const cleanName = playerName.trim().slice(0, 20);
     if (!clean) {
       setErr("Room code оруулна уу");
+      return;
+    }
+    if (!cleanName) {
+      setErr("Please enter your player name");
       return;
     }
 
@@ -51,7 +61,7 @@ export default function JoinPage() {
     }, 12000);
 
     socket.on("connect", () => {
-      socket.emit("joinRoom", { roomCode: clean, playerId });
+      socket.emit("joinRoom", { roomCode: clean, playerId, name: cleanName });
     });
 
     socket.on("connect_error", (e: { message?: string }) => {
@@ -75,6 +85,7 @@ export default function JoinPage() {
       localStorage.setItem("playerId", playerId);
       localStorage.setItem("isHost", "false");
       localStorage.setItem("maxPlayers", String(data.maxPlayers));
+      localStorage.setItem("playerName", cleanName);
 
       socket.disconnect();
       router.push("/Home-page/Lobby/join-lobby");
@@ -94,6 +105,14 @@ export default function JoinPage() {
         </h1>
 
         <div className="mt-8 flex flex-col items-center gap-4">
+          <input
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            placeholder="Your name"
+            className="w-[320px] px-4 py-3 rounded-md text-lg outline-none"
+            disabled={loading}
+            maxLength={20}
+          />
           <input
             value={roomCode}
             onChange={(e) => setRoomCode(e.target.value)}

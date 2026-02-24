@@ -16,7 +16,7 @@ export interface GameImages {
   key: HTMLImageElement;
   door: HTMLImageElement;
   death: HTMLImageElement;
-  dangerButton: HTMLImageElement; // Энийг тооцохоо мартсан байсан
+  dangerButton: HTMLImageElement;
 }
 
 export class ImageLoader {

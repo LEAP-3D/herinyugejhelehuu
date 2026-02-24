@@ -2,6 +2,7 @@
 
 export interface Player {
   id: number;
+  name?: string | null;
   x: number;
   y: number;
   vx: number;
