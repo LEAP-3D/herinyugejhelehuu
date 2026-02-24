@@ -234,11 +234,15 @@ export const renderPlayers = (
       ctx.fillRect(player.x, player.y, player.width, player.height);
     }
 
-    // Тоглогчийн дугаар
+    // Тоглогчийн нэр/дугаар
     ctx.fillStyle = player.color;
     ctx.font = "bold 14px Arial";
     ctx.textAlign = "center";
-    ctx.fillText(`P${player.id}`, player.x + player.width / 2, player.y - 10);
+    const label =
+      typeof player.name === "string" && player.name.trim().length > 0
+        ? player.name.trim().slice(0, 14)
+        : `P${player.id}`;
+    ctx.fillText(label, player.x + player.width / 2, player.y - 10);
   });
 
   ctx.restore();

@@ -15,6 +15,7 @@ function genRoomCode() {
 export default function HostPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<PCount>(2);
+  const [playerName, setPlayerName] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [roomCodeUi, setRoomCodeUi] = useState("");
@@ -24,6 +25,10 @@ export default function HostPage() {
   const socketRef = useRef<Socket | null>(null);
   const createTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const createResolvedRef = useRef(false);
+
+  useEffect(() => {
+    setPlayerName(localStorage.getItem("playerName") ?? "");
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -38,6 +43,13 @@ export default function HostPage() {
     setLoading(true);
     createResolvedRef.current = false;
 
+    const cleanName = playerName.trim().slice(0, 20);
+    if (!cleanName) {
+      setErr("Please enter your player name");
+      setLoading(false);
+      return;
+    }
+
     const roomCode = genRoomCode();
     const hostId = crypto.randomUUID();
 
@@ -45,6 +57,7 @@ export default function HostPage() {
     localStorage.setItem("playerId", hostId);
     localStorage.setItem("maxPlayers", String(players));
     localStorage.setItem("isHost", "true");
+    localStorage.setItem("playerName", cleanName);
 
     if (socketRef.current) {
       socketRef.current.removeAllListeners();
@@ -84,6 +97,7 @@ export default function HostPage() {
         roomCode,
         maxPlayers: players,
         hostId,
+        playerName: cleanName,
       });
     });
 
@@ -150,6 +164,17 @@ export default function HostPage() {
           >
             4P
           </button>
+        </div>
+
+        <div className="mt-6">
+          <input
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            placeholder="Your name"
+            className="w-[320px] px-4 py-3 rounded-md text-lg outline-none"
+            maxLength={20}
+            disabled={loading}
+          />
         </div>
 
         {roomCodeUi && (

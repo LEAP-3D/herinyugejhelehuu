@@ -313,11 +313,11 @@ export class Renderer {
         this.ctx.fillStyle = player.color;
         this.ctx.font = "bold 14px Arial";
         this.ctx.textAlign = "center";
-        this.ctx.fillText(
-          `P${playerId || "?"}`,
-          player.x + player.width / 2,
-          player.y - 10,
-        );
+        const label =
+          typeof player.name === "string" && player.name.trim().length > 0
+            ? player.name.trim().slice(0, 14)
+            : `P${playerId || "?"}`;
+        this.ctx.fillText(label, player.x + player.width / 2, player.y - 10);
       } else {
         // Fallback draw so players remain visible even if id typing/image lookup fails.
         this.ctx.fillStyle = player.color || "#ff4d4f";
@@ -325,11 +325,11 @@ export class Renderer {
         this.ctx.fillStyle = "#fff";
         this.ctx.font = "bold 14px Arial";
         this.ctx.textAlign = "center";
-        this.ctx.fillText(
-          `P${playerId || "?"}`,
-          player.x + player.width / 2,
-          player.y - 10,
-        );
+        const label =
+          typeof player.name === "string" && player.name.trim().length > 0
+            ? player.name.trim().slice(0, 14)
+            : `P${playerId || "?"}`;
+        this.ctx.fillText(label, player.x + player.width / 2, player.y - 10);
       }
     });
 

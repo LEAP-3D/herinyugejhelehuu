@@ -53,6 +53,10 @@ const World1Multiplayer = () => {
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 700 });
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [localDeath, setLocalDeath] = useState(false);
+  const gameStateRef = useRef(gameState);
+  const hasKeyRef = useRef(hasKey);
+  const canvasSizeRef = useRef(canvasSize);
+  const localDeathRef = useRef(localDeath);
 
   // Refs
   const socketRef = useRef<Socket | null>(null);
@@ -65,6 +69,7 @@ const World1Multiplayer = () => {
   const joinRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const joinRetryCountRef = useRef(0);
   const playerHeroByIdRef = useRef<Record<string, string>>({});
+  const playerNameByIdRef = useRef<Record<string, string>>({});
 
   // Game systems
   const cameraController = useRef(new CameraController());
@@ -95,6 +100,22 @@ const World1Multiplayer = () => {
     return Object.values(players);
   }, []);
 
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
+
+  useEffect(() => {
+    hasKeyRef.current = hasKey;
+  }, [hasKey]);
+
+  useEffect(() => {
+    canvasSizeRef.current = canvasSize;
+  }, [canvasSize]);
+
+  useEffect(() => {
+    localDeathRef.current = localDeath;
+  }, [localDeath]);
+
   /**
    * ✅ SOCKET CONNECTION
    */
@@ -107,6 +128,7 @@ const World1Multiplayer = () => {
 
     const rc = localStorage.getItem("roomCode")?.trim();
     const pid = localStorage.getItem("playerId")?.trim();
+    const playerName = localStorage.getItem("playerName")?.trim();
     const isHost = localStorage.getItem("isHost") === "true";
     const maxPlayers = Number(localStorage.getItem("maxPlayers") ?? 2);
 
@@ -151,6 +173,10 @@ const World1Multiplayer = () => {
             ...playerValue,
             hero:
               playerValue?.hero ?? playerHeroByIdRef.current[playerKey] ?? null,
+            name:
+              (typeof playerValue?.name === "string" && playerValue.name) ||
+              playerNameByIdRef.current[playerKey] ||
+              null,
           },
         ]),
       );
@@ -186,7 +212,7 @@ const World1Multiplayer = () => {
     };
 
     const onRoomState = (state?: {
-      players?: Record<string, { hero?: string | null }>;
+      players?: Record<string, { hero?: string | null; name?: string | null }>;
     }) => {
       // Avoid join loops. Re-join only once after host-side room recreation.
       if (state?.players) {
@@ -194,6 +220,9 @@ const World1Multiplayer = () => {
         Object.entries(state.players).forEach(([playerKey, playerState]) => {
           if (typeof playerState?.hero === "string" && playerState.hero) {
             nextHeroes[playerKey] = playerState.hero;
+          }
+          if (typeof playerState?.name === "string" && playerState.name.trim()) {
+            playerNameByIdRef.current[playerKey] = playerState.name.trim();
           }
         });
         if (Object.keys(nextHeroes).length > 0) {
@@ -211,7 +240,7 @@ const World1Multiplayer = () => {
       }
       if (recreateTriedRef.current && !rejoinAfterCreateRef.current) {
         rejoinAfterCreateRef.current = true;
-        s.emit("joinRoom", { roomCode: rc, playerId: pid });
+        s.emit("joinRoom", { roomCode: rc, playerId: pid, name: playerName });
       }
     };
 
@@ -223,8 +252,12 @@ const World1Multiplayer = () => {
       reconnectAttempts.current = 0;
       joinRetryCountRef.current = 0;
 
-      console.log("📤 Emitting joinRoom:", { roomCode: rc, playerId: pid });
-      s.emit("joinRoom", { roomCode: rc, playerId: pid });
+      console.log("📤 Emitting joinRoom:", {
+        roomCode: rc,
+        playerId: pid,
+        name: playerName,
+      });
+      s.emit("joinRoom", { roomCode: rc, playerId: pid, name: playerName });
     });
 
     s.on("connect_error", (error: Error) => {
@@ -267,7 +300,7 @@ const World1Multiplayer = () => {
       setConnectionError("");
       reconnectAttempts.current = 0;
       joinRetryCountRef.current = 0;
-      s.emit("joinRoom", { roomCode: rc, playerId: pid });
+      s.emit("joinRoom", { roomCode: rc, playerId: pid, name: playerName });
     });
 
     s.on("reconnect_failed", () => {
@@ -309,6 +342,7 @@ const World1Multiplayer = () => {
           roomCode: rc,
           maxPlayers: Number.isFinite(maxPlayers) ? maxPlayers : 2,
           hostId: pid,
+          playerName,
         });
         return;
       }
@@ -322,7 +356,7 @@ const World1Multiplayer = () => {
           if (joinRetryTimerRef.current)
             clearTimeout(joinRetryTimerRef.current);
           joinRetryTimerRef.current = setTimeout(() => {
-            s.emit("joinRoom", { roomCode: rc, playerId: pid });
+            s.emit("joinRoom", { roomCode: rc, playerId: pid, name: playerName });
           }, 600);
           return;
         }
@@ -519,7 +553,9 @@ const World1Multiplayer = () => {
   const gameLoop = useCallback(() => {
     if (!renderer.current || !gameImages.current) return;
 
-    const players = applyTetherConstraint(gameState.players);
+    const state = gameStateRef.current;
+    const currentCanvasSize = canvasSizeRef.current;
+    const players = applyTetherConstraint(state.players);
     const platforms = platformsRef.current;
     const movingPlatforms = movingPlatformsRef.current;
     const fallingPlatforms = fallingPlatformsRef.current;
@@ -527,22 +563,24 @@ const World1Multiplayer = () => {
     const key = keyRef.current;
     const door = doorRef.current;
 
-    key.collected = gameState.keyCollected;
+    key.collected = state.keyCollected;
 
     const isDeadByWorldRules = players.some(
-      (player) => player.dead || player.y > canvasSize.height + 50,
+      (player) => player.dead || player.y > currentCanvasSize.height + 50,
     );
-    const shouldShowDeath = gameState.gameStatus === "dead" || isDeadByWorldRules;
-    if (isDeadByWorldRules && !localDeath) {
+    const shouldShowDeath = state.gameStatus === "dead" || isDeadByWorldRules;
+    if (isDeadByWorldRules && !localDeathRef.current) {
+      localDeathRef.current = true;
       setLocalDeath(true);
     }
 
     physicsEngine.current.incrementAnimTimer();
     physicsEngine.current.updateClouds(clouds);
-    // Keep platform transforms authoritative on backend to avoid render/collision drift.
+    physicsEngine.current.updateMovingPlatforms(movingPlatforms);
+    physicsEngine.current.updateFallingPlatforms(fallingPlatforms);
 
     if (players.length > 0) {
-      cameraController.current.updateCamera(players, canvasSize.width);
+      cameraController.current.updateCamera(players, currentCanvasSize.width);
     }
 
     const camera = cameraController.current.getCamera();
@@ -567,12 +605,12 @@ const World1Multiplayer = () => {
     );
 
     renderer.current.renderPlayers(players, gameImages.current, camera);
-    renderer.current.renderHUD(hasKey, gameState.playersAtDoor.length);
+    renderer.current.renderHUD(hasKeyRef.current, state.playersAtDoor.length);
     renderer.current.renderControls();
     if (shouldShowDeath) {
       renderer.current.renderDeathScreen(gameImages.current);
     }
-  }, [gameState, canvasSize, hasKey, applyTetherConstraint, localDeath]);
+  }, [applyTetherConstraint]);
 
   useEffect(() => {
     if (gameState.gameStatus !== "dead") {
@@ -582,8 +620,15 @@ const World1Multiplayer = () => {
 
   useEffect(() => {
     if (!imagesLoaded) return;
-    const interval = setInterval(gameLoop, 1000 / 60);
-    return () => clearInterval(interval);
+
+    let rafId = 0;
+    const loop = () => {
+      gameLoop();
+      rafId = requestAnimationFrame(loop);
+    };
+
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
   }, [gameLoop, imagesLoaded]);
 
   useEffect(() => {

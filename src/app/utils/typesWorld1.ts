@@ -1,6 +1,7 @@
 export interface Player {
   id: number | string;
   hero?: string | null;
+  name?: string | null;
   x: number;
   y: number;
   vx: number;
