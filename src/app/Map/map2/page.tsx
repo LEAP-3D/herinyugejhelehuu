@@ -80,15 +80,10 @@ interface JoinSuccessPayload {
   playerId: string | number;
   playerIndex?: number;
 }
-interface GameImages {
-  [key: string]: HTMLImageElement;
-}
-
 const World2 = () => {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const gameImages = useRef<GameImages | null>(null);
   const localPlayerSlotRef = useRef(1);
   const joinRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const joinRetryCountRef = useRef(0);
@@ -207,9 +202,9 @@ const World2 = () => {
    */
   /**
    * ✅ LOAD IMAGES - FINAL FIX
-   */
+  */
   useEffect(() => {
-    const loader = new ImageLoader();
+    const loader = imageLoader.current;
 
     loader
       .loadImages({
@@ -239,11 +234,7 @@ const World2 = () => {
         death: deathImg.src,
         dangerButton: dangerButtonImg.src,
       })
-      .then((images) => {
-        // Төрлийг нь локал интерфейс рүү хөрвүүлж онооно
-        if (gameImages) {
-          gameImages.current = images as unknown as GameImages;
-        }
+      .then(() => {
         setImagesLoaded(true);
         console.log("✅ Бүх зураг амжилттай ачаалагдлаа");
       })
