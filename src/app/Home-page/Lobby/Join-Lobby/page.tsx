@@ -1,9 +1,10 @@
 "use client";
 
-import Image from "next/image";
+import NextImage from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { io, type Socket } from "socket.io-client";
+import { Loader2 } from "lucide-react";
 
 type Hero = "finn" | "jake" | "ice" | "bmo";
 type PlayerState = { hero: Hero | null; ready: boolean; name?: string };
@@ -35,8 +36,10 @@ export default function LobbyPage() {
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState("");
   const playerNameRef = useRef("");
+  const selectedHeroRef = useRef<Hero>("jake");
   const [isHost, setIsHost] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [bgLoaded, setBgLoaded] = useState(false);
   const recreateTriedRef = useRef(false);
 
   const getErrMessage = useCallback((e: unknown, fallback: string) => {
@@ -47,15 +50,6 @@ export default function LobbyPage() {
     }
     return fallback;
   }, []);
-
-  const takenHeroes = useMemo(() => {
-    const set = new Set<Hero>();
-    if (!roomState) return set;
-    Object.values(roomState.players).forEach((p) => {
-      if (p.hero) set.add(p.hero);
-    });
-    return set;
-  }, [roomState]);
 
   const heroDisplayNames = useMemo(() => {
     const labels: Record<Hero, string> = {
@@ -95,6 +89,18 @@ export default function LobbyPage() {
   }, [playerName]);
 
   useEffect(() => {
+    selectedHeroRef.current = selected;
+  }, [selected]);
+
+  useEffect(() => {
+    const img = new window.Image();
+    img.src = "/ariinzurag.png";
+    const markReady = () => setBgLoaded(true);
+    img.onload = markReady;
+    img.onerror = markReady;
+  }, []);
+
+  useEffect(() => {
     if (!hydrated) return;
     if (!roomCode || !playerId) {
       setErr("Room info missing. Please create or join room again.");
@@ -111,6 +117,11 @@ export default function LobbyPage() {
         roomCode,
         playerId,
         name: cleanName || undefined,
+      });
+      socketRef.current?.emit("selectHero", {
+        roomCode,
+        playerId,
+        hero: selectedHeroRef.current,
       });
       if (cleanName) {
         socketRef.current?.emit("setPlayerName", {
@@ -143,6 +154,13 @@ export default function LobbyPage() {
       const me = mergedState.players[playerId];
       if (me) setMeReady(Boolean(me.ready));
       if (me?.hero) setSelected(me.hero);
+      if (me && !me.hero) {
+        socketRef.current?.emit("selectHero", {
+          roomCode,
+          playerId,
+          hero: selectedHeroRef.current,
+        });
+      }
     };
 
     const onStartGame = () => {
@@ -219,6 +237,20 @@ export default function LobbyPage() {
     };
   }, [hydrated, roomCode, playerId, isHost, router, getErrMessage]);
 
+  const myServerHero = useMemo(() => {
+    if (!roomState || !playerId) return null;
+    return roomState.players[playerId]?.hero ?? null;
+  }, [roomState, playerId]);
+
+  const takenHeroesByOthers = useMemo(() => {
+    const set = new Set<Hero>();
+    if (!roomState || !playerId) return set;
+    Object.entries(roomState.players).forEach(([id, p]) => {
+      if (id !== playerId && p.hero) set.add(p.hero);
+    });
+    return set;
+  }, [roomState, playerId]);
+
   useEffect(() => {
     const cleanName = playerName.trim().slice(0, 20);
     localStorage.setItem("playerName", cleanName);
@@ -232,6 +264,11 @@ export default function LobbyPage() {
   }, [playerName, roomCode, playerId]);
 
   const selectHero = (id: Hero) => {
+    if (!roomCode || !playerId) return;
+    if (takenHeroesByOthers.has(id) && myServerHero !== id) {
+      setErr("This hero is already taken");
+      return;
+    }
     setErr("");
     setSelected(id);
     socketRef.current?.emit("selectHero", { roomCode, playerId, hero: id });
@@ -276,12 +313,13 @@ export default function LobbyPage() {
     displayName: string;
   }) => {
     const isSelected = selected === id;
-    const isTakenBySomeone = takenHeroes.has(id);
+    const isTakenBySomeoneElse = takenHeroesByOthers.has(id);
 
     return (
       <button
         type="button"
         onClick={() => selectHero(id)}
+        disabled={isTakenBySomeoneElse && !isSelected}
         className="flex flex-col items-center"
       >
         <div
@@ -289,7 +327,7 @@ export default function LobbyPage() {
             isSelected ? "outline-[6px] outline-lime-400" : ""
           }`}
         >
-          <Image src={img} alt={heroLabel} fill className="object-contain" />
+          <NextImage src={img} alt={heroLabel} fill className="object-contain" />
           {isSelected && (
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-lime-400 font-joystix text-[20px]">
@@ -297,7 +335,7 @@ export default function LobbyPage() {
               </span>
             </div>
           )}
-          {isTakenBySomeone && !isSelected && (
+          {isTakenBySomeoneElse && !isSelected && (
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-red-300 font-joystix text-[18px]">
                 TAKEN
@@ -318,8 +356,20 @@ export default function LobbyPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden">
+      {!bgLoaded && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black">
+          <div className="flex items-center gap-3 text-white/90">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="font-joystix text-xs tracking-wider">
+              LOADING BACKGROUND...
+            </span>
+          </div>
+        </div>
+      )}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat z-0 pointer-events-none"
+        className={`absolute inset-0 bg-cover bg-center bg-no-repeat z-0 pointer-events-none transition-opacity duration-300 ${
+          bgLoaded ? "opacity-100" : "opacity-0"
+        }`}
         style={{ backgroundImage: `url("/ariinzurag.png")` }}
       />
 
@@ -393,7 +443,7 @@ export default function LobbyPage() {
           onClick={() => (isHost ? hostStartNow() : setReady(!meReady))}
           className="flex pt-32.25 transition active:translate-y-1"
         >
-          <Image src="/Ready.png" alt="Ready" width={265} height={69} />
+          <NextImage src="/Ready.png" alt="Ready" width={265} height={69} />
         </button>
 
         <div className="text-white/70 text-sm">

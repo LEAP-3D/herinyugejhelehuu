@@ -17,6 +17,7 @@ export default function HostPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<PCount>(2);
   const [loading, setLoading] = useState(false);
+  const [bgLoaded, setBgLoaded] = useState(false);
   const [err, setErr] = useState("");
   const [roomCodeUi, setRoomCodeUi] = useState("");
   const [roomState, setRoomState] = useState<RoomState | null>(null);
@@ -31,6 +32,14 @@ export default function HostPage() {
       socketRef.current?.disconnect();
       socketRef.current = null;
     };
+  }, []);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = "/ariinzurag.png";
+    const markReady = () => setBgLoaded(true);
+    img.onload = markReady;
+    img.onerror = markReady;
   }, []);
 
   const createRoom = useCallback(async () => {
@@ -137,10 +146,22 @@ export default function HostPage() {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background">
       {/* ✅ ariinzurag.png background */}
       <div
-        className="absolute inset-0 bg-cover bg-center"
+        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-300 ${
+          bgLoaded ? "opacity-100" : "opacity-0"
+        }`}
         style={{ backgroundImage: `url("/ariinzurag.png")` }}
       />
       <div className="absolute inset-0 bg-black/40" />
+      {!bgLoaded && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black">
+          <div className="flex items-center gap-3 text-white/90">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="font-display text-sm tracking-wider">
+              LOADING BACKGROUND...
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Flip card styles */}
       <style>{`

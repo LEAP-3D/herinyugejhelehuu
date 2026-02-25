@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
+import { Loader2 } from "lucide-react";
 import { isRoomState } from "@/types/room";
 
 const SOCKET_URL =
@@ -16,6 +17,15 @@ export default function JoinPage() {
   const [roomCode, setRoomCode] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [bgLoaded, setBgLoaded] = useState(false);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = "/ariinzurag.png";
+    const markReady = () => setBgLoaded(true);
+    img.onload = markReady;
+    img.onerror = markReady;
+  }, []);
 
   const join = () => {
     setErr("");
@@ -80,14 +90,24 @@ export default function JoinPage() {
       localStorage.setItem("playerName", cleanName);
 
       socket.disconnect();
-      router.push("/Home-page/Lobby/join-lobby");
+      router.push("/Home-page/Lobby/Join-Lobby");
     });
   };
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-black">
+      {!bgLoaded && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black">
+          <div className="flex items-center gap-3 text-white/90">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm tracking-wider">LOADING BACKGROUND...</span>
+          </div>
+        </div>
+      )}
       <div
-        className="absolute inset-0 bg-cover bg-center opacity-70"
+        className={`absolute inset-0 bg-cover bg-center transition-opacity duration-300 ${
+          bgLoaded ? "opacity-70" : "opacity-0"
+        }`}
         style={{ backgroundImage: `url("/ariinzurag.png")` }}
       />
 
