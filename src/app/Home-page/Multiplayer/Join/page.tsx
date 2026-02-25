@@ -5,11 +5,7 @@ import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { Loader2 } from "lucide-react";
 import { isRoomState } from "@/types/room";
-
-const SOCKET_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ??
-  process.env.NEXT_PUBLIC_SOCKET_URL ??
-  "http://localhost:4000";
+import { getConnectionErrorMessage, resolveSocketUrl } from "@/app/utils/socketUrl";
 
 export default function JoinPage() {
   const router = useRouter();
@@ -41,8 +37,9 @@ export default function JoinPage() {
     setLoading(true);
 
     const playerId = crypto.randomUUID();
+    const socketUrl = resolveSocketUrl();
     let resolved = false;
-    const socket = io(SOCKET_URL, {
+    const socket = io(socketUrl, {
       transports: ["websocket", "polling"],
       timeout: 10000,
       reconnection: false,
@@ -67,7 +64,8 @@ export default function JoinPage() {
     });
 
     socket.on("connect_error", (e: { message?: string }) => {
-      finishWithError(e?.message ?? "Socket connection failed");
+      const rawMessage = e?.message ?? "Socket connection failed";
+      finishWithError(getConnectionErrorMessage(rawMessage, socketUrl));
     });
 
     // ❌ join амжилтгүй
@@ -90,7 +88,7 @@ export default function JoinPage() {
       localStorage.setItem("playerName", cleanName);
 
       socket.disconnect();
-      router.push("/Home-page/Lobby/Join-Lobby");
+      router.push("/Home-page/Lobby/join-lobby");
     });
   };
 
