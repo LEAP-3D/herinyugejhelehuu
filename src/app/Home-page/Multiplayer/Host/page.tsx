@@ -268,7 +268,7 @@ export default function HostPage() {
             <button
               type="button"
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/40 bg-white/15 py-3 font-display text-sm font-bold uppercase tracking-widest text-white transition-all hover:bg-white/25"
-              onClick={() => router.push("/Home-page/Lobby/join-lobby")}
+              onClick={() => router.push("/Home-page/Lobby/Join-Lobby")}
             >
               LOBBY РУУ ОРОХ
               <ArrowRight className="h-5 w-5" />

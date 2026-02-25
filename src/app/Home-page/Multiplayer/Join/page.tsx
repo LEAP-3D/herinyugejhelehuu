@@ -97,7 +97,7 @@ export default function JoinPage() {
       localStorage.setItem("playerName", cleanName);
 
       socket.disconnect();
-      router.push("/Home-page/Lobby/join-lobby");
+      router.push("/Home-page/Lobby/Join-Lobby");
     });
   };
 
