@@ -131,24 +131,14 @@ export const handlePlayerCollisions = (
       const minOverlapY = Math.min(overlapTop, overlapBottom);
 
       if (minOverlapX < minOverlapY) {
-        const pushForce = 0.2;
-
         if (overlapLeft < overlapRight) {
           const separation = minOverlapX / 2 + 0.5;
           player.x -= separation;
           otherPlayer.x += separation;
-
-          if (player.vx > 0) {
-            otherPlayer.vx = Math.min(otherPlayer.vx + pushForce, MOVE_SPEED);
-          }
         } else {
           const separation = minOverlapX / 2 + 0.5;
           player.x += separation;
           otherPlayer.x -= separation;
-
-          if (player.vx < 0) {
-            otherPlayer.vx = Math.max(otherPlayer.vx - pushForce, -MOVE_SPEED);
-          }
         }
       }
     }

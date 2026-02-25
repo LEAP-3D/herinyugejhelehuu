@@ -38,3 +38,19 @@ export function getConnectionErrorMessage(errorMessage: string, socketUrl: strin
 
   return errorMessage;
 }
+
+export function hasLocalhostSocketMisconfig(socketUrl: string) {
+  if (typeof window === "undefined") return false;
+
+  const pageHost = window.location.hostname;
+  const pageIsLocal = pageHost === "localhost" || pageHost === "127.0.0.1";
+  if (pageIsLocal) return false;
+
+  try {
+    const target = new URL(socketUrl, window.location.origin);
+    const targetHost = target.hostname;
+    return targetHost === "localhost" || targetHost === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}

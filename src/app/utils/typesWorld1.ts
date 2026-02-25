@@ -13,7 +13,7 @@ export interface Player {
   facingRight: boolean;
   color: string;
   dead: boolean;
-  standingOnPlayer: number | null;
+  standingOnPlayer: number | string | null;
 }
 
 export interface Platform {

@@ -6,7 +6,11 @@ import { io, type Socket } from "socket.io-client";
 import { Loader2, Users, Hash, Gamepad2, ArrowRight } from "lucide-react";
 import { isRoomState } from "@/types/room";
 import type { RoomState } from "@/types/room";
-import { getConnectionErrorMessage, resolveSocketUrl } from "@/app/utils/socketUrl";
+import {
+  getConnectionErrorMessage,
+  hasLocalhostSocketMisconfig,
+  resolveSocketUrl,
+} from "@/app/utils/socketUrl";
 
 type PCount = 2 | 3 | 4;
 
@@ -67,6 +71,11 @@ export default function HostPage() {
     if (createTimerRef.current) clearTimeout(createTimerRef.current);
 
     const SOCKET_URL = resolveSocketUrl();
+    if (hasLocalhostSocketMisconfig(SOCKET_URL)) {
+      setErr("Backend URL localhost гэж тохирсон байна. Deploy env-ээ шалгана уу.");
+      setLoading(false);
+      return;
+    }
 
     const socket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
