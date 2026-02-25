@@ -104,11 +104,7 @@ export default function Page() {
         .loader-shell {
           position: relative;
           padding: 28px 34px;
-          border: 4px solid #f3e7c6;
-          box-shadow:
-            0 0 0 4px #2b2b2b,
-            0 0 24px rgba(255, 241, 171, 0.35);
-          background: rgba(14, 14, 14, 0.9);
+          background: transparent;
           image-rendering: pixelated;
           overflow: hidden;
         }
@@ -121,7 +117,7 @@ export default function Page() {
             to bottom,
             transparent 0,
             transparent 4px,
-            rgba(255, 255, 255, 0.05) 5px
+            rgba(255, 255, 255, 0.04) 5px
           );
           animation: scanlines 1.1s linear infinite;
           pointer-events: none;
