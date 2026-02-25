@@ -635,14 +635,15 @@ const World2 = () => {
       : undefined;
     const previousLocal = prevLocalPlayerRef.current;
     const jumpPressed = inputHandler.current.getUniversalInput().jump;
-    const startedJump =
-      Boolean(localPlayer) &&
-      Boolean(previousLocal) &&
+    const startedJump = !!(
+      localPlayer &&
+      previousLocal &&
       previousLocal.onGround &&
       !localPlayer.onGround &&
       localPlayer.vy < -0.5 &&
       jumpPressed &&
-      !localPlayer.dead;
+      !localPlayer.dead
+    );
     if (startedJump) {
       sfxRef.current?.playJump();
     }
