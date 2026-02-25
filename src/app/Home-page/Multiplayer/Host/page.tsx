@@ -6,6 +6,7 @@ import { io, type Socket } from "socket.io-client";
 import { Loader2, Users, Hash, Gamepad2, ArrowRight } from "lucide-react";
 import { isRoomState } from "@/types/room";
 import type { RoomState } from "@/types/room";
+import { getConnectionErrorMessage, resolveSocketUrl } from "@/app/utils/socketUrl";
 
 type PCount = 2 | 3 | 4;
 
@@ -49,7 +50,7 @@ export default function HostPage() {
     setRoomState(null);
     createResolvedRef.current = false;
 
-    const roomCode = genRoomCode();
+    let roomCode = genRoomCode();
     const hostId = crypto.randomUUID();
 
     localStorage.setItem("roomCode", roomCode);
@@ -65,10 +66,7 @@ export default function HostPage() {
 
     if (createTimerRef.current) clearTimeout(createTimerRef.current);
 
-    const SOCKET_URL =
-      process.env.NEXT_PUBLIC_BACKEND_URL ??
-      process.env.NEXT_PUBLIC_SOCKET_URL ??
-      "http://localhost:4000";
+    const SOCKET_URL = resolveSocketUrl();
 
     const socket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
@@ -94,9 +92,10 @@ export default function HostPage() {
       socket.emit("createRoom", { roomCode, maxPlayers: players, hostId });
     });
 
-    socket.on("connect_error", (e) => {
+    socket.on("connect_error", (e: { message?: string }) => {
       console.error("connect_error", e);
-      fail(`Холболт амжилтгүй: ${e.message}`);
+      const rawMessage = e?.message ?? "Socket connection failed";
+      fail(`Холболт амжилтгүй: ${getConnectionErrorMessage(rawMessage, SOCKET_URL)}`);
     });
 
     socket.on("createDenied", (reason: string) => {
@@ -105,13 +104,10 @@ export default function HostPage() {
         reason?.toLowerCase().includes("taken")
       ) {
         console.warn("Room code давхцлаа, дахин оролдож байна...");
-        socket.removeAllListeners();
-        socket.disconnect();
-        createResolvedRef.current = false;
-        const newCode = genRoomCode();
-        localStorage.setItem("roomCode", newCode);
+        roomCode = genRoomCode();
+        localStorage.setItem("roomCode", roomCode);
         socket.emit("createRoom", {
-          roomCode: newCode,
+          roomCode,
           maxPlayers: players,
           hostId,
         });
@@ -133,7 +129,7 @@ export default function HostPage() {
 
       localStorage.setItem("roomState", JSON.stringify(data));
       setRoomState(data);
-      setRoomCodeUi(localStorage.getItem("roomCode") ?? "");
+      setRoomCodeUi(data.roomCode ?? roomCode);
       setLoading(false);
     });
 
@@ -263,7 +259,7 @@ export default function HostPage() {
             <button
               type="button"
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/40 bg-white/15 py-3 font-display text-sm font-bold uppercase tracking-widest text-white transition-all hover:bg-white/25"
-              onClick={() => router.push("/Home-page/Lobby/Join-Lobby")}
+              onClick={() => router.push("/Home-page/Lobby/join-lobby")}
             >
               LOBBY РУУ ОРОХ
               <ArrowRight className="h-5 w-5" />
