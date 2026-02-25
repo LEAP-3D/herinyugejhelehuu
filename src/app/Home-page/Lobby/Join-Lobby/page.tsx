@@ -331,20 +331,31 @@ export default function LobbyPage() {
           Choose your hero.
         </p>
 
-        <div className="text-white/80">
+        <div
+          style={{ fontFamily: "Joystix" }}
+          className="text-white/90 text-[22px] tracking-[0.06em]"
+        >
           Room: #{roomCode ?? "..."} • Players:{" "}
           {roomState ? Object.keys(roomState.players).length : 0}/
           {roomState?.maxPlayers ?? "?"}
           {isHost ? " • HOST" : ""}
         </div>
 
-        <input
-          value={playerName}
-          onChange={(e) => setPlayerName(e.target.value)}
-          placeholder="Your display name"
-          className="w-[320px] px-4 py-2 rounded-md text-black outline-none"
-          maxLength={20}
-        />
+        <div className="pixel-name-frame w-[340px] p-3 bg-black/55">
+          <div
+            style={{ fontFamily: "Joystix" }}
+            className="mb-2 text-[12px] tracking-[0.12em] text-[#f3e7c6]"
+          >
+            YOUR DISPLAY NAME
+          </div>
+          <input
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value)}
+            placeholder="Your display name"
+            className="pixel-name-input w-full px-4 py-2 text-[#f3e7c6] outline-none"
+            maxLength={20}
+          />
+        </div>
 
         {err && <div className="text-red-300">{err}</div>}
 
@@ -393,6 +404,51 @@ export default function LobbyPage() {
               : "Press READY after choosing hero"}
         </div>
       </div>
+      <style jsx>{`
+        .pixel-name-frame {
+          border: 4px solid #f3e7c6;
+          box-shadow:
+            0 0 0 4px #2b2b2b,
+            0 8px 0 rgba(0, 0, 0, 0.45);
+          image-rendering: pixelated;
+          clip-path: polygon(
+            0 6px,
+            6px 6px,
+            6px 0,
+            calc(100% - 6px) 0,
+            calc(100% - 6px) 6px,
+            100% 6px,
+            100% calc(100% - 6px),
+            calc(100% - 6px) calc(100% - 6px),
+            calc(100% - 6px) 100%,
+            6px 100%,
+            6px calc(100% - 6px),
+            0 calc(100% - 6px)
+          );
+        }
+
+        .pixel-name-input {
+          background: #161616;
+          border: 3px solid #f3e7c6;
+          box-shadow:
+            inset 0 0 0 2px #0b0b0b,
+            0 4px 0 rgba(0, 0, 0, 0.35);
+          clip-path: polygon(
+            0 4px,
+            4px 4px,
+            4px 0,
+            calc(100% - 4px) 0,
+            calc(100% - 4px) 4px,
+            100% 4px,
+            100% calc(100% - 4px),
+            calc(100% - 4px) calc(100% - 4px),
+            calc(100% - 4px) 100%,
+            4px 100%,
+            4px calc(100% - 4px),
+            0 calc(100% - 4px)
+          );
+        }
+      `}</style>
     </main>
   );
 }

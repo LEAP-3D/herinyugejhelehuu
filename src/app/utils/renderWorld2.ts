@@ -262,7 +262,7 @@ export const renderHUD = (
   ctx.fillText("WORLD 2: BUTTON DEATH", 25, 38);
   ctx.font = "bold 20px Arial";
   ctx.fillText(`Key: ${hasKey ? "✅" : "🔒"}`, 25, 65);
-  ctx.fillText(`Door: ${playersAtDoor}/4`, 110, 65);
+  ctx.fillText(`Door: ${playersAtDoor}/1`, 110, 65);
 
   // Анхааруулга
   ctx.fillStyle = "#E74C3C";
@@ -279,13 +279,8 @@ export const renderControls = (
   ctx.fillRect(15, canvasHeight - 75, 450, 65);
 
   ctx.fillStyle = "#4A90D9";
-  ctx.fillText("P1: WASD", 25, canvasHeight - 52);
-  ctx.fillStyle = "#D94A4A";
-  ctx.fillText("P2: Arrow Keys", 25, canvasHeight - 32);
-  ctx.fillStyle = "#4ADB4A";
-  ctx.fillText("P3: TFGH", 25, canvasHeight - 12);
-  ctx.fillStyle = "#DBA44A";
-  ctx.fillText("P4: IJKL", 150, canvasHeight - 52);
+  ctx.fillText("Player movement: WASD", 25, canvasHeight - 52);
+  ctx.fillText("Jump: SPACE", 25, canvasHeight - 32);
 };
 
 export const renderDeathScreen = (

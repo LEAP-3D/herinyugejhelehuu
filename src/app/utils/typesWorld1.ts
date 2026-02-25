@@ -98,8 +98,8 @@ export interface PlayerInput {
 // ================= CONSTANTS =================
 
 export const GRAVITY = 0.3;
-export const JUMP_FORCE = -10;
-export const MOVE_SPEED = 2.5;
+export const JUMP_FORCE = -14;
+export const MOVE_SPEED = 3;
 export const PLAYER_WIDTH = 45;
 export const PLAYER_HEIGHT = 55;
 export const DEATH_FREEZE_TIME = 1500;

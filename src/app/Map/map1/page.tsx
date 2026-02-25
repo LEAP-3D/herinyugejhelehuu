@@ -21,9 +21,13 @@ import deathImg from "@/app/assets/Death.png";
 import keyImg from "@/app/assets/Keys.png";
 
 import {
+  Door,
+  FallingPlatform,
   GameState,
   JoinDeniedPayload,
   JoinSuccessPayload,
+  Key,
+  MovingPlatform,
 } from "@/app/utils/typesWorld1";
 import { CameraController } from "@/app/utils/cameraWorld1";
 import { GameData } from "@/app/utils/gameDataWorld1";
@@ -31,8 +35,19 @@ import { ImageLoader, GameImages } from "@/app/utils/imageLoaderWorld1";
 import { InputHandler } from "@/app/utils/inputHandlerWorld1";
 import { PhysicsEngine } from "@/app/utils/physicsWorld1";
 import { Renderer } from "@/app/utils/renderWorld1";
+import {
+  createGameSfxController,
+  type GameSfxController,
+} from "@/app/utils/gameSfx";
 
 const World1Multiplayer = () => {
+  interface GameStatePayload extends GameState {
+    movingPlatforms?: MovingPlatform[];
+    fallingPlatforms?: FallingPlatform[];
+    key?: Key;
+    door?: Door;
+  }
+
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -70,6 +85,9 @@ const World1Multiplayer = () => {
   const joinRetryCountRef = useRef(0);
   const playerHeroByIdRef = useRef<Record<string, string>>({});
   const playerNameByIdRef = useRef<Record<string, string>>({});
+  const sfxRef = useRef<GameSfxController | null>(null);
+  const prevLocalPlayerRef = useRef<{ onGround: boolean } | null>(null);
+  const prevShouldShowDeathRef = useRef(false);
 
   // Game systems
   const cameraController = useRef(new CameraController());
@@ -88,12 +106,7 @@ const World1Multiplayer = () => {
 
   const groundY = gameData.current.getGroundY();
 
-  // Helper: Get next world
-  const getNextWorld = () => {
-    const currentWorld = 1;
-    const maxWorlds = 3;
-    return currentWorld < maxWorlds ? currentWorld + 1 : null;
-  };
+  const nextLevelRoute = "/Map/map2";
 
   const applyTetherConstraint = useCallback((players: GameState["players"]) => {
     // Tether mechanic disabled: use authoritative positions from server as-is.
@@ -115,6 +128,14 @@ const World1Multiplayer = () => {
   useEffect(() => {
     localDeathRef.current = localDeath;
   }, [localDeath]);
+
+  useEffect(() => {
+    sfxRef.current = createGameSfxController();
+    return () => {
+      sfxRef.current?.cleanup();
+      sfxRef.current = null;
+    };
+  }, []);
 
   /**
    * ✅ SOCKET CONNECTION
@@ -165,7 +186,7 @@ const World1Multiplayer = () => {
       });
     };
 
-    const onState = (state: GameState) => {
+    const onState = (state: GameStatePayload) => {
       const mergedPlayers = Object.fromEntries(
         Object.entries(state.players ?? {}).map(([playerKey, playerValue]) => [
           playerKey,
@@ -194,6 +215,30 @@ const World1Multiplayer = () => {
       setConnectionError("");
       setHasKey(state.keyCollected);
 
+      if (Array.isArray(state.movingPlatforms)) {
+        movingPlatformsRef.current = state.movingPlatforms.map((platform) => ({
+          ...platform,
+        }));
+      }
+      if (Array.isArray(state.fallingPlatforms)) {
+        fallingPlatformsRef.current = state.fallingPlatforms.map((platform) => ({
+          ...platform,
+        }));
+      }
+      if (state.key) {
+        keyRef.current = {
+          ...keyRef.current,
+          ...state.key,
+          collected: state.keyCollected,
+        };
+      }
+      if (state.door) {
+        doorRef.current = {
+          ...doorRef.current,
+          ...state.door,
+        };
+      }
+
       if (winTimerRef.current) {
         clearTimeout(winTimerRef.current);
         winTimerRef.current = null;
@@ -201,12 +246,7 @@ const World1Multiplayer = () => {
 
       if (state.gameStatus === "won") {
         winTimerRef.current = setTimeout(() => {
-          const nextWorld = getNextWorld();
-          if (nextWorld) {
-            router.push(`/multiplayer/world${nextWorld}`);
-          } else {
-            router.push("/");
-          }
+          router.push(nextLevelRoute);
         }, 3000);
       }
     };
@@ -406,7 +446,7 @@ const World1Multiplayer = () => {
       s.off("joinSuccess");
       s.disconnect();
     };
-  }, [router]);
+  }, [router, nextLevelRoute]);
 
   // Handle window resize
   useEffect(() => {
@@ -565,22 +605,43 @@ const World1Multiplayer = () => {
     key.collected = state.keyCollected;
 
     const localPlayerId = localStorage.getItem("playerId")?.trim();
-    const localPlayer = players.find(
-      (player) => String(player.id) === String(localPlayerId),
-    );
+    const localPlayer = localPlayerId
+      ? state.players[localPlayerId]
+      : undefined;
+    const previousLocal = prevLocalPlayerRef.current;
+    const jumpPressed = inputHandler.current.getUniversalInput().jump;
+
+    const startedJump =
+      Boolean(localPlayer) &&
+      Boolean(previousLocal) &&
+      previousLocal.onGround &&
+      !localPlayer.onGround &&
+      localPlayer.vy < -0.5 &&
+      jumpPressed &&
+      !localPlayer.dead;
+    if (startedJump) {
+      sfxRef.current?.playJump();
+    }
+
     const isDeadByWorldRules = localPlayer
       ? localPlayer.dead || localPlayer.y > currentCanvasSize.height + 50
       : false;
     const shouldShowDeath = state.gameStatus === "dead" || isDeadByWorldRules;
+    if (shouldShowDeath && !prevShouldShowDeathRef.current) {
+      sfxRef.current?.playDeath();
+    }
+    prevShouldShowDeathRef.current = shouldShowDeath;
+
     if (isDeadByWorldRules && !localDeathRef.current) {
       localDeathRef.current = true;
       setLocalDeath(true);
     }
+    prevLocalPlayerRef.current = localPlayer
+      ? { onGround: localPlayer.onGround }
+      : null;
 
     physicsEngine.current.incrementAnimTimer();
     physicsEngine.current.updateClouds(clouds);
-    physicsEngine.current.updateMovingPlatforms(movingPlatforms);
-    physicsEngine.current.updateFallingPlatforms(fallingPlatforms);
 
     if (players.length > 0) {
       cameraController.current.updateCamera(players, currentCanvasSize.width);
