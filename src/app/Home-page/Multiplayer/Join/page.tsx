@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { Loader2 } from "lucide-react";
 import { isRoomState } from "@/types/room";
-import { getConnectionErrorMessage, resolveSocketUrl } from "@/app/utils/socketUrl";
+import {
+  getConnectionErrorMessage,
+  hasLocalhostSocketMisconfig,
+  resolveSocketUrl,
+} from "@/app/utils/socketUrl";
 
 export default function JoinPage() {
   const router = useRouter();
@@ -38,6 +42,11 @@ export default function JoinPage() {
 
     const playerId = crypto.randomUUID();
     const socketUrl = resolveSocketUrl();
+    if (hasLocalhostSocketMisconfig(socketUrl)) {
+      setErr("Backend URL localhost гэж тохирсон байна. Deploy env-ээ шалгана уу.");
+      setLoading(false);
+      return;
+    }
     let resolved = false;
     const socket = io(socketUrl, {
       transports: ["websocket", "polling"],
