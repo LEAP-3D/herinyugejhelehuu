@@ -327,7 +327,12 @@ export default function LobbyPage() {
             isSelected ? "outline-[6px] outline-lime-400" : ""
           }`}
         >
-          <NextImage src={img} alt={heroLabel} fill className="object-contain" />
+          <NextImage
+            src={img}
+            alt={heroLabel}
+            fill
+            className="object-contain"
+          />
           {isSelected && (
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-lime-400 font-joystix text-[20px]">
@@ -391,7 +396,7 @@ export default function LobbyPage() {
           {isHost ? " • HOST" : ""}
         </div>
 
-        <div className="pixel-name-frame w-[340px] p-3 bg-black/55">
+        <div className="pixel-name-frame w-85 p-3 bg-black/55">
           <div
             style={{ fontFamily: "Joystix" }}
             className="mb-2 text-[12px] tracking-[0.12em] text-[#f3e7c6]"
