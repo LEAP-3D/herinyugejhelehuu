@@ -164,23 +164,21 @@ export class Renderer {
     this.ctx.save();
     this.ctx.translate(-camera.x, 0);
     fallingPlatforms.forEach((platform) => {
-      if (platform.y < this.canvasHeight) {
-        this.ctx.fillStyle = platform.falling ? "#A0522D" : "#CD853F";
-        this.ctx.fillRect(
-          platform.x,
-          platform.y,
-          platform.width,
-          platform.height,
-        );
-        this.ctx.strokeStyle = "#654321";
-        this.ctx.lineWidth = 1;
-        this.ctx.beginPath();
-        this.ctx.moveTo(platform.x + 10, platform.y);
-        this.ctx.lineTo(platform.x + 15, platform.y + platform.height);
-        this.ctx.moveTo(platform.x + 30, platform.y);
-        this.ctx.lineTo(platform.x + 25, platform.y + platform.height);
-        this.ctx.stroke();
-      }
+      this.ctx.fillStyle = platform.falling ? "#A0522D" : "#CD853F";
+      this.ctx.fillRect(
+        platform.x,
+        platform.y,
+        platform.width,
+        platform.height,
+      );
+      this.ctx.strokeStyle = "#654321";
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(platform.x + 10, platform.y);
+      this.ctx.lineTo(platform.x + 15, platform.y + platform.height);
+      this.ctx.moveTo(platform.x + 30, platform.y);
+      this.ctx.lineTo(platform.x + 25, platform.y + platform.height);
+      this.ctx.stroke();
     });
     this.ctx.restore();
   }
@@ -351,7 +349,7 @@ export class Renderer {
     this.ctx.font = "bold 20px Arial";
     this.ctx.textAlign = "left";
     this.ctx.fillText(`Key: ${hasKey ? "✅" : ""}`, 25, 45);
-    this.ctx.fillText(`Door: ${playersAtDoorCount}/4`, 100, 45);
+    this.ctx.fillText(`Door: ${playersAtDoorCount}/1`, 100, 45);
   }
 
   renderControls(): void {
@@ -359,19 +357,11 @@ export class Renderer {
     this.ctx.fillStyle = "rgba(0,0,0,0.6)";
     this.ctx.fillRect(15, this.canvasHeight - 70, 550, 60);
     this.ctx.fillStyle = "#4A90D9";
-    this.ctx.fillText("P1: WASD", 25, this.canvasHeight - 47);
-    this.ctx.fillStyle = "#D94A4A";
-    this.ctx.fillText("P2: Arrows", 25, this.canvasHeight - 27);
+    this.ctx.fillText("Player movement: WASD", 25, this.canvasHeight - 47);
     this.ctx.fillStyle = "#F1C40F";
-    this.ctx.fillText("P3: TFGH", 130, this.canvasHeight - 47);
-    this.ctx.fillStyle = "#2ECC71";
-    this.ctx.fillText("P4: IJKL", 130, this.canvasHeight - 27);
+    this.ctx.fillText("Jump: SPACE", 25, this.canvasHeight - 32);
     this.ctx.fillStyle = "#fff";
-    this.ctx.fillText(
-      "| Stack on each other like Pico Park!",
-      230,
-      this.canvasHeight - 37,
-    );
+    this.ctx.fillText("| Stack on each other ", 230, this.canvasHeight - 37);
   }
 
   renderDeathScreen(images: GameImages): void {

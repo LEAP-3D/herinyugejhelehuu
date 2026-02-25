@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
 import { isRoomState } from "@/types/room";
@@ -14,25 +14,17 @@ export default function JoinPage() {
   const router = useRouter();
 
   const [roomCode, setRoomCode] = useState("");
-  const [playerName, setPlayerName] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    setPlayerName(localStorage.getItem("playerName") ?? "");
-  }, []);
 
   const join = () => {
     setErr("");
 
     const clean = roomCode.replace("#", "").trim();
-    const cleanName = playerName.trim().slice(0, 20);
+    const previousName = (localStorage.getItem("playerName") || "").trim();
+    const cleanName = (previousName || "Player").slice(0, 20);
     if (!clean) {
       setErr("Room code оруулна уу");
-      return;
-    }
-    if (!cleanName) {
-      setErr("Please enter your player name");
       return;
     }
 
@@ -105,21 +97,22 @@ export default function JoinPage() {
         </h1>
 
         <div className="mt-8 flex flex-col items-center gap-4">
-          <input
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            placeholder="Your name"
-            className="w-[320px] px-4 py-3 rounded-md text-lg outline-none"
-            disabled={loading}
-            maxLength={20}
-          />
-          <input
-            value={roomCode}
-            onChange={(e) => setRoomCode(e.target.value)}
-            placeholder="Room code (ж: 734554)"
-            className="w-[320px] px-4 py-3 rounded-md text-lg outline-none"
-            disabled={loading}
-          />
+          <div className="pixel-frame w-[320px] bg-black/55 p-3">
+            <div className="mb-2 text-[12px] tracking-[0.2em] text-[#f3e7c6] uppercase">
+              Room Code
+            </div>
+            <input
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value)}
+              placeholder="734554"
+              className="pixel-input w-full bg-[#161616] px-3 py-2 text-lg text-[#f3e7c6] outline-none"
+              style={{
+                letterSpacing: "0.25em",
+                fontFamily: '"Courier New", monospace',
+              }}
+              disabled={loading}
+            />
+          </div>
 
           {err && <div className="text-red-300">{err}</div>}
 
@@ -136,6 +129,51 @@ export default function JoinPage() {
           </div>
         </div>
       </div>
+      <style jsx>{`
+        .pixel-frame {
+          position: relative;
+          border: 4px solid #f3e7c6;
+          box-shadow:
+            0 0 0 4px #2b2b2b,
+            0 8px 0 rgba(0, 0, 0, 0.45);
+          image-rendering: pixelated;
+          clip-path: polygon(
+            0 6px,
+            6px 6px,
+            6px 0,
+            calc(100% - 6px) 0,
+            calc(100% - 6px) 6px,
+            100% 6px,
+            100% calc(100% - 6px),
+            calc(100% - 6px) calc(100% - 6px),
+            calc(100% - 6px) 100%,
+            6px 100%,
+            6px calc(100% - 6px),
+            0 calc(100% - 6px)
+          );
+        }
+
+        .pixel-input {
+          border: 3px solid #f3e7c6;
+          box-shadow:
+            inset 0 0 0 2px #0b0b0b,
+            0 4px 0 rgba(0, 0, 0, 0.35);
+          clip-path: polygon(
+            0 4px,
+            4px 4px,
+            4px 0,
+            calc(100% - 4px) 0,
+            calc(100% - 4px) 4px,
+            100% 4px,
+            100% calc(100% - 4px),
+            calc(100% - 4px) calc(100% - 4px),
+            calc(100% - 4px) 100%,
+            4px 100%,
+            4px calc(100% - 4px),
+            0 calc(100% - 4px)
+          );
+        }
+      `}</style>
     </div>
   );
 }

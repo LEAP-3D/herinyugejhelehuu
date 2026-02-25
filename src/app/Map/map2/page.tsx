@@ -58,6 +58,10 @@ import {
   checkDangerButtonCollision,
   checkFallOffScreen,
 } from "@/app/utils/physicsWorld2";
+import {
+  createGameSfxController,
+  type GameSfxController,
+} from "@/app/utils/gameSfx";
 
 // Socket.IO types
 interface GameState {
@@ -114,6 +118,9 @@ const World2 = () => {
   const hasKeyRef = useRef(hasKey);
   const canvasSizeRef = useRef(canvasSize);
   const localDeathRef = useRef(localDeath);
+  const sfxRef = useRef<GameSfxController | null>(null);
+  const prevLocalPlayerRef = useRef<{ onGround: boolean } | null>(null);
+  const prevShouldShowDeathRef = useRef(false);
 
   const animTimer = useRef(0);
   const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -138,6 +145,14 @@ const World2 = () => {
     localDeathRef.current = localDeath;
   }, [localDeath]);
 
+  useEffect(() => {
+    sfxRef.current = createGameSfxController();
+    return () => {
+      sfxRef.current?.cleanup();
+      sfxRef.current = null;
+    };
+  }, []);
+
   // Game objects
   const platformsRef = useRef<Platform[]>(createPlatforms(groundY));
   const dangerButtonsRef = useRef<DangerButton[]>(createDangerButtons(groundY));
@@ -157,12 +172,7 @@ const World2 = () => {
   });
   const cameraRef = useRef<Camera>({ x: 0, y: 0 });
 
-  // Get next world helper
-  const getNextWorld = () => {
-    const currentWorld = 2;
-    const totalWorlds = 3;
-    return currentWorld < totalWorlds ? currentWorld + 1 : null;
-  };
+  const nextLevelRoute = "/Home-page/Multiplayer";
 
   /**
    * ✅ WINDOW RESIZE
@@ -327,12 +337,7 @@ const World2 = () => {
 
       if (state.gameStatus === "won") {
         winTimerRef.current = setTimeout(() => {
-          const nextWorld = getNextWorld();
-          if (nextWorld) {
-            router.push(`/multiplayer/world${nextWorld}`);
-          } else {
-            router.push("/");
-          }
+          router.push(nextLevelRoute);
         }, 3000);
       }
     };
@@ -521,7 +526,7 @@ const World2 = () => {
       s.off("joinSuccess");
       s.disconnect();
     };
-  }, [router]);
+  }, [router, nextLevelRoute]);
 
   /**
    * ✅ INPUT HANDLER - ЗАСВАРЛАСАН
@@ -625,20 +630,41 @@ const World2 = () => {
     key.collected = state.keyCollected;
 
     const localPlayerId = localStorage.getItem("playerId")?.trim();
-    const localPlayer = players.find(
-      (player) => String(player.id) === String(localPlayerId),
-    );
+    const localPlayer = localPlayerId
+      ? state.players[localPlayerId]
+      : undefined;
+    const previousLocal = prevLocalPlayerRef.current;
+    const jumpPressed = inputHandler.current.getUniversalInput().jump;
+    const startedJump =
+      Boolean(localPlayer) &&
+      Boolean(previousLocal) &&
+      previousLocal.onGround &&
+      !localPlayer.onGround &&
+      localPlayer.vy < -0.5 &&
+      jumpPressed &&
+      !localPlayer.dead;
+    if (startedJump) {
+      sfxRef.current?.playJump();
+    }
+
     const isDeadByWorldRules = localPlayer
       ? localPlayer.dead ||
         checkDangerButtonCollision(localPlayer, dangerButtons) ||
         checkFallOffScreen(localPlayer, currentCanvasSize.height)
       : false;
     const shouldShowDeath = state.gameStatus === "dead" || isDeadByWorldRules;
+    if (shouldShowDeath && !prevShouldShowDeathRef.current) {
+      sfxRef.current?.playDeath();
+    }
+    prevShouldShowDeathRef.current = shouldShowDeath;
 
     if (isDeadByWorldRules && !localDeathRef.current) {
       localDeathRef.current = true;
       setLocalDeath(true);
     }
+    prevLocalPlayerRef.current = localPlayer
+      ? { onGround: localPlayer.onGround }
+      : null;
 
     // === RENDERING ===
 
@@ -764,12 +790,12 @@ const World2 = () => {
       {gameState.gameStatus === "won" && (
         <div className="fixed inset-0 flex flex-col items-center justify-center bg-black/80">
           <h2 className="text-6xl font-bold text-yellow-400 mb-6">
-            🎉 Level Complete!
+            Thanks for playing.
           </h2>
           <p className="text-white text-2xl mb-8">
-            All 4 players avoided the deadly buttons!
+            Stay tuned further development.
           </p>
-          <p className="text-white text-lg">Moving to next world...</p>
+          <p className="text-white text-lg">See you in the next update.</p>
         </div>
       )}
     </div>

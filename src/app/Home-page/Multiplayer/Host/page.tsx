@@ -15,7 +15,6 @@ function genRoomCode() {
 export default function HostPage() {
   const router = useRouter();
   const [players, setPlayers] = useState<PCount>(2);
-  const [playerName, setPlayerName] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [roomCodeUi, setRoomCodeUi] = useState("");
@@ -25,10 +24,6 @@ export default function HostPage() {
   const socketRef = useRef<Socket | null>(null);
   const createTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const createResolvedRef = useRef(false);
-
-  useEffect(() => {
-    setPlayerName(localStorage.getItem("playerName") ?? "");
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -43,12 +38,8 @@ export default function HostPage() {
     setLoading(true);
     createResolvedRef.current = false;
 
-    const cleanName = playerName.trim().slice(0, 20);
-    if (!cleanName) {
-      setErr("Please enter your player name");
-      setLoading(false);
-      return;
-    }
+    const previousName = (localStorage.getItem("playerName") || "").trim();
+    const cleanName = (previousName || "Host").slice(0, 20);
 
     const roomCode = genRoomCode();
     const hostId = crypto.randomUUID();
@@ -129,8 +120,10 @@ export default function HostPage() {
   };
 
   const pillClass = (active: boolean) =>
-    `px-6 py-2 text-white text-xl tracking-widest ${
-      active ? "opacity-100" : "opacity-60"
+    `px-6 py-2 text-white text-xl tracking-widest rounded-md transition-all duration-150 ${
+      active
+        ? "opacity-100 bg-white/20 scale-105"
+        : "opacity-70 hover:opacity-100 hover:bg-white/15 hover:scale-105"
     }`;
 
   return (
@@ -149,32 +142,24 @@ export default function HostPage() {
           <button
             onClick={() => setPlayers(2)}
             className={pillClass(players === 2)}
+            aria-pressed={players === 2}
           >
             2P
           </button>
           <button
             onClick={() => setPlayers(3)}
             className={pillClass(players === 3)}
+            aria-pressed={players === 3}
           >
             3P
           </button>
           <button
             onClick={() => setPlayers(4)}
             className={pillClass(players === 4)}
+            aria-pressed={players === 4}
           >
             4P
           </button>
-        </div>
-
-        <div className="mt-6">
-          <input
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            placeholder="Your name"
-            className="w-[320px] px-4 py-3 rounded-md text-lg outline-none"
-            maxLength={20}
-            disabled={loading}
-          />
         </div>
 
         {roomCodeUi && (
