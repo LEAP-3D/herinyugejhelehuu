@@ -80,7 +80,12 @@ export default function Page() {
           />
         </button>
         <button onClick={goMulti} className="transition active:translate-y-1">
-          <NextImage src="/Open-room.png" alt="hello" width={440} height={108} />
+          <NextImage
+            src="/Open-room.png"
+            alt="hello"
+            width={440}
+            height={108}
+          />
         </button>
         <button
           onClick={goSettings}
@@ -92,3 +97,4 @@ export default function Page() {
     </>
   );
 }
+//asdasd

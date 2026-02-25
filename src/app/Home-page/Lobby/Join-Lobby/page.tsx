@@ -7,11 +7,13 @@ import { io, type Socket } from "socket.io-client";
 import { Loader2 } from "lucide-react";
 
 type Hero = "finn" | "jake" | "ice" | "bmo";
+type LevelKey = "map1" | "map2";
 type PlayerState = { hero: Hero | null; ready: boolean; name?: string };
 type RoomState = {
   roomCode: string;
   maxPlayers: number;
   players: Record<string, PlayerState>;
+  level?: LevelKey;
 };
 type GameStateEvent = {
   gameStatus?: "waiting" | "playing" | "won" | "dead" | string;
@@ -35,12 +37,18 @@ export default function LobbyPage() {
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState<LevelKey>("map1");
   const playerNameRef = useRef("");
   const selectedHeroRef = useRef<Hero>("jake");
   const [isHost, setIsHost] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [bgLoaded, setBgLoaded] = useState(false);
   const recreateTriedRef = useRef(false);
+  const selectedLevelRef = useRef<LevelKey>("map1");
+
+  const levelToRoute = useCallback((level: LevelKey) => {
+    return level === "map2" ? "/Map/map2" : "/Map/map1";
+  }, []);
 
   const getErrMessage = useCallback((e: unknown, fallback: string) => {
     if (typeof e === "string") return e;
@@ -80,6 +88,14 @@ export default function LobbyPage() {
     setPlayerId(localStorage.getItem("playerId"));
     setPlayerName(localStorage.getItem("playerName") ?? "");
     setIsHost(localStorage.getItem("isHost") === "true");
+    const savedLevel = localStorage.getItem("selectedLevel");
+    if (savedLevel === "map2") {
+      setSelectedLevel("map2");
+      selectedLevelRef.current = "map2";
+    } else {
+      setSelectedLevel("map1");
+      selectedLevelRef.current = "map1";
+    }
     recreateTriedRef.current = false;
     setHydrated(true);
   }, []);
@@ -91,6 +107,11 @@ export default function LobbyPage() {
   useEffect(() => {
     selectedHeroRef.current = selected;
   }, [selected]);
+
+  useEffect(() => {
+    selectedLevelRef.current = selectedLevel;
+    localStorage.setItem("selectedLevel", selectedLevel);
+  }, [selectedLevel]);
 
   useEffect(() => {
     const img = new window.Image();
@@ -133,6 +154,9 @@ export default function LobbyPage() {
     };
 
     const onRoomState = (state: RoomState) => {
+      if (state.level === "map1" || state.level === "map2") {
+        setSelectedLevel(state.level);
+      }
       const meFromServer = state.players[playerId];
       const cleanName = playerNameRef.current.trim().slice(0, 20);
       const mergedState =
@@ -164,12 +188,12 @@ export default function LobbyPage() {
     };
 
     const onStartGame = () => {
-      router.push("/Map/map1");
+      router.push(levelToRoute(selectedLevelRef.current));
     };
 
     const onGameState = (state: GameStateEvent) => {
       if (state?.gameStatus === "playing") {
-        router.push("/Map/map1");
+        router.push(levelToRoute(selectedLevelRef.current));
       }
     };
 
@@ -235,7 +259,7 @@ export default function LobbyPage() {
       socketRef.current?.disconnect();
       socketRef.current = null;
     };
-  }, [hydrated, roomCode, playerId, isHost, router, getErrMessage]);
+  }, [hydrated, roomCode, playerId, isHost, router, getErrMessage, levelToRoute]);
 
   const myServerHero = useMemo(() => {
     if (!roomState || !playerId) return null;
@@ -296,6 +320,10 @@ export default function LobbyPage() {
 
   const hostStartNow = () => {
     setErr("");
+    socketRef.current?.emit("setLevel", {
+      roomCode,
+      level: selectedLevelRef.current,
+    });
     socketRef.current?.emit("setReady", { roomCode, playerId, ready: true });
     socketRef.current?.emit("startGameNow");
     socketRef.current?.emit("startGame");
@@ -442,6 +470,34 @@ export default function LobbyPage() {
             displayName={heroDisplayNames.bmo}
           />
         </div>
+
+        {isHost && (
+          <div className="mt-4 flex items-center gap-3">
+            <span className="font-joystix text-white text-sm">Level:</span>
+            <button
+              type="button"
+              onClick={() => setSelectedLevel("map1")}
+              className={`px-4 py-2 text-xs font-joystix border-2 ${
+                selectedLevel === "map1"
+                  ? "bg-lime-400 text-black border-lime-200"
+                  : "bg-black/50 text-white border-white/40"
+              }`}
+            >
+              MAP 1
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedLevel("map2")}
+              className={`px-4 py-2 text-xs font-joystix border-2 ${
+                selectedLevel === "map2"
+                  ? "bg-lime-400 text-black border-lime-200"
+                  : "bg-black/50 text-white border-white/40"
+              }`}
+            >
+              MAP 2
+            </button>
+          </div>
+        )}
 
         <button
           type="button"
