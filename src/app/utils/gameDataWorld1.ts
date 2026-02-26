@@ -159,7 +159,7 @@ export class GameData {
   getKey(): Key {
     return {
       x: 1950,
-      y: this.groundY - 370,
+      y: this.groundY - 330,
       width: 40,
       height: 40,
       collected: false,

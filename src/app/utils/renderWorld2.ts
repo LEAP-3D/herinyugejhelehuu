@@ -19,7 +19,7 @@ import {
 export const renderBackground = (
   ctx: CanvasRenderingContext2D,
   canvasWidth: number,
-  canvasHeight: number,
+  canvasHeight: number
 ): void => {
   // Gradient арын дэвсгэр
   const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
@@ -32,7 +32,7 @@ export const renderBackground = (
 
 export const renderStars = (
   ctx: CanvasRenderingContext2D,
-  animTimer: number,
+  animTimer: number
 ): void => {
   ctx.save();
   ctx.fillStyle = "#ffffff";
@@ -50,7 +50,7 @@ export const renderStars = (
 
 export const renderMoon = (
   ctx: CanvasRenderingContext2D,
-  canvasWidth: number,
+  canvasWidth: number
 ): void => {
   ctx.save();
   const moonX = canvasWidth - 150;
@@ -64,7 +64,7 @@ export const renderMoon = (
     moonRadius * 0.5,
     moonX,
     moonY,
-    moonRadius * 2,
+    moonRadius * 2
   );
   moonGlow.addColorStop(0, "rgba(255, 255, 200, 0.3)");
   moonGlow.addColorStop(1, "rgba(255, 255, 200, 0)");
@@ -84,7 +84,7 @@ export const renderMoon = (
 export const renderClouds = (
   ctx: CanvasRenderingContext2D,
   clouds: Cloud[],
-  camera: Camera,
+  camera: Camera
 ): void => {
   ctx.save();
   applyCameraTransformParallax(ctx, camera, 0.3);
@@ -103,12 +103,14 @@ export const renderGround = (
   ctx: CanvasRenderingContext2D,
   canvasHeight: number,
   camera: Camera,
-  groundTopY?: number,
+  groundTopY?: number
 ): void => {
   ctx.save();
   applyCameraTransform(ctx, camera);
 
-  const topY = Number.isFinite(groundTopY) ? (groundTopY as number) : canvasHeight - 60;
+  const topY = Number.isFinite(groundTopY)
+    ? (groundTopY as number)
+    : canvasHeight - 60;
   ctx.fillStyle = "#1a1a2e";
   ctx.fillRect(-100, topY, 9000, 120);
 
@@ -118,7 +120,7 @@ export const renderGround = (
 export const renderPlatforms = (
   ctx: CanvasRenderingContext2D,
   platforms: Platform[],
-  camera: Camera,
+  camera: Camera
 ): void => {
   ctx.save();
   applyCameraTransform(ctx, camera);
@@ -137,7 +139,7 @@ export const renderDangerButtons = (
   ctx: CanvasRenderingContext2D,
   dangerButtons: DangerButton[],
   images: GameImages,
-  camera: Camera,
+  camera: Camera
 ): void => {
   ctx.save();
   applyCameraTransform(ctx, camera);
@@ -149,7 +151,7 @@ export const renderDangerButtons = (
         button.x,
         button.y,
         button.width,
-        button.height,
+        button.height
       );
     } else {
       // Fallback
@@ -160,7 +162,7 @@ export const renderDangerButtons = (
         button.y + button.height / 2,
         button.width / 2,
         0,
-        Math.PI * 2,
+        Math.PI * 2
       );
       ctx.fill();
     }
@@ -173,7 +175,7 @@ export const renderDoor = (
   ctx: CanvasRenderingContext2D,
   door: Door,
   images: GameImages,
-  camera: Camera,
+  camera: Camera
 ): void => {
   ctx.save();
   applyCameraTransform(ctx, camera);
@@ -190,7 +192,7 @@ export const renderKey = (
   key: Key,
   images: GameImages,
   animTimer: number,
-  camera: Camera,
+  camera: Camera
 ): void => {
   if (!key.collected && images.key && images.key.naturalWidth > 0) {
     ctx.save();
@@ -207,7 +209,7 @@ export const renderPlayers = (
   ctx: CanvasRenderingContext2D,
   players: Player[],
   images: GameImages,
-  camera: Camera,
+  camera: Camera
 ): void => {
   ctx.save();
   applyCameraTransform(ctx, camera);
@@ -219,7 +221,7 @@ export const renderPlayers = (
       images,
       player.id,
       player.animFrame,
-      player.facingRight,
+      player.facingRight
     );
 
     if (playerImage && playerImage.naturalWidth > 0) {
@@ -228,7 +230,7 @@ export const renderPlayers = (
         player.x,
         player.y,
         player.width,
-        player.height,
+        player.height
       );
     } else {
       // Fallback - өнгөт дөрвөлжин
@@ -253,7 +255,7 @@ export const renderPlayers = (
 export const renderHUD = (
   ctx: CanvasRenderingContext2D,
   hasKey: boolean,
-  playersAtDoor: number,
+  playersAtDoor: number
 ): void => {
   // Мэдээлэл хайрцаг
   ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
@@ -272,24 +274,11 @@ export const renderHUD = (
   ctx.fillText("⚠️ DON'T TOUCH THE BUTTONS!", 25, 105);
 };
 
-export const renderControls = (
-  ctx: CanvasRenderingContext2D,
-  canvasHeight: number,
-): void => {
-  ctx.font = "12px Arial";
-  ctx.fillStyle = "rgba(0,0,0,0.7)";
-  ctx.fillRect(15, canvasHeight - 75, 450, 65);
-
-  ctx.fillStyle = "#4A90D9";
-  ctx.fillText("Player movement: WASD", 25, canvasHeight - 52);
-  ctx.fillText("Jump: SPACE", 25, canvasHeight - 32);
-};
-
 export const renderDeathScreen = (
   ctx: CanvasRenderingContext2D,
   canvasWidth: number,
   canvasHeight: number,
-  images: GameImages,
+  images: GameImages
 ): void => {
   // Бараан арын дэвсгэр
   ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
@@ -303,7 +292,7 @@ export const renderDeathScreen = (
       canvasWidth / 2 - imgSize / 2,
       canvasHeight / 2 - imgSize / 2 - 30,
       imgSize,
-      imgSize,
+      imgSize
     );
   }
 
