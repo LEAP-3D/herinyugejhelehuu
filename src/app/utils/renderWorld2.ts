@@ -103,12 +103,14 @@ export const renderGround = (
   ctx: CanvasRenderingContext2D,
   canvasHeight: number,
   camera: Camera,
+  groundTopY?: number,
 ): void => {
   ctx.save();
   applyCameraTransform(ctx, camera);
 
+  const topY = Number.isFinite(groundTopY) ? (groundTopY as number) : canvasHeight - 60;
   ctx.fillStyle = "#1a1a2e";
-  ctx.fillRect(-100, canvasHeight - 60, 5000, 100);
+  ctx.fillRect(-100, topY, 9000, 120);
 
   ctx.restore();
 };
