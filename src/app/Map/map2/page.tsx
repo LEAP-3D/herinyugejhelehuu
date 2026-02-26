@@ -69,6 +69,9 @@ interface GameState {
   keyCollected: boolean;
   playersAtDoor: number[];
   gameStatus: "waiting" | "playing" | "won" | "dead";
+  key?: Omit<Key, "collected">;
+  door?: Door;
+  dangerButtons?: DangerButton[];
 }
 
 interface JoinDeniedPayload {
@@ -109,6 +112,7 @@ const World2 = () => {
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 700 });
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [localDeath, setLocalDeath] = useState(false);
+  const [isPauseMenuOpen, setIsPauseMenuOpen] = useState(false);
   const gameStateRef = useRef(gameState);
   const hasKeyRef = useRef(hasKey);
   const canvasSizeRef = useRef(canvasSize);
@@ -141,6 +145,17 @@ const World2 = () => {
   }, [localDeath]);
 
   useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.repeat) return;
+      e.preventDefault();
+      setIsPauseMenuOpen((prev) => !prev);
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
+
+  useEffect(() => {
     sfxRef.current = createGameSfxController();
     return () => {
       sfxRef.current?.cleanup();
@@ -168,6 +183,19 @@ const World2 = () => {
   const cameraRef = useRef<Camera>({ x: 0, y: 0 });
 
   const nextLevelRoute = "/Home-page/Multiplayer";
+  const handleExitGame = useCallback(() => {
+    socketRef.current?.disconnect();
+    [
+      "roomCode",
+      "playerId",
+      "isHost",
+      "maxPlayers",
+      "playerName",
+      "selectedLevel",
+    ].forEach((key) => localStorage.removeItem(key));
+    setIsPauseMenuOpen(false);
+    router.push("/");
+  }, [router]);
 
   /**
    * ✅ WINDOW RESIZE
@@ -529,7 +557,7 @@ const World2 = () => {
 
     // Серверт input илгээх функц
     const sendInputToServer = () => {
-      if (!socketRef.current || !isConnected) return;
+      if (!socketRef.current || !isConnected || isPauseMenuOpen) return;
 
       const pid = localStorage.getItem("playerId");
       if (!pid) return;
@@ -541,6 +569,8 @@ const World2 = () => {
         playerId: pid,
         playerIndex: playerSlot,
         roomCode,
+        canvasHeight: canvasSizeRef.current.height,
+        viewportHeight: window.innerHeight,
         keys: playerInput,
         input: playerInput,
         timestamp: Date.now(),
@@ -557,6 +587,7 @@ const World2 = () => {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return;
       // InputHandler-д товчлуур дарагдсан гэдгийг мэдэгдэх
       handler.handleKeyDown(e);
 
@@ -565,6 +596,7 @@ const World2 = () => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return;
       // InputHandler-д товчлуур суллагдсан гэдгийг мэдэгдэх
       handler.handleKeyUp(e);
 
@@ -584,7 +616,26 @@ const World2 = () => {
       window.removeEventListener("keyup", handleKeyUp);
       handler.clear(); // Бүх товчлуурыг цэвэрлэх
     };
-  }, [isConnected]);
+  }, [isConnected, isPauseMenuOpen]);
+
+  useEffect(() => {
+    if (!isPauseMenuOpen || !socketRef.current || !isConnected) return;
+
+    const pid = localStorage.getItem("playerId");
+    if (!pid) return;
+
+    const roomCode = localStorage.getItem("roomCode");
+    socketRef.current.emit("playerInput", {
+      playerId: pid,
+      playerIndex: localPlayerSlotRef.current,
+      roomCode,
+      canvasHeight: canvasSizeRef.current.height,
+      viewportHeight: window.innerHeight,
+      keys: { left: false, right: false, jump: false },
+      input: { left: false, right: false, jump: false },
+      timestamp: Date.now(),
+    });
+  }, [isPauseMenuOpen, isConnected]);
 
   /**
    * ✅ GAME LOOP (RENDERING ONLY)
@@ -600,11 +651,37 @@ const World2 = () => {
     const state = gameStateRef.current;
     const currentCanvasSize = canvasSizeRef.current;
     const players = Object.values(state.players);
-    const platforms = platformsRef.current;
-    const dangerButtons = dangerButtonsRef.current;
+    const syncedDangerButtons =
+      Array.isArray(state.dangerButtons) && state.dangerButtons.length > 0
+        ? state.dangerButtons
+        : dangerButtonsRef.current;
+    const inferredGroundTop =
+      syncedDangerButtons.length > 0
+        ? syncedDangerButtons[0].y + syncedDangerButtons[0].height
+        : platformsRef.current[0]?.y ?? currentCanvasSize.height - 40;
+    const platforms = [
+      {
+        x: 0,
+        y: inferredGroundTop,
+        width: 8200,
+        height: 20,
+      },
+    ];
+    const dangerButtons = syncedDangerButtons;
     const clouds = cloudsRef.current;
-    const key = keyRef.current;
-    const door = doorRef.current;
+    const key = state.key
+      ? {
+          ...keyRef.current,
+          ...state.key,
+          collected: state.keyCollected,
+        }
+      : keyRef.current;
+    const door = state.door
+      ? {
+          ...doorRef.current,
+          ...state.door,
+        }
+      : doorRef.current;
     const camera = cameraRef.current;
 
     animTimer.current++;
@@ -673,7 +750,7 @@ const World2 = () => {
     renderClouds(ctx, clouds, camera);
 
     // World objects (with camera)
-    renderGround(ctx, currentCanvasSize.height, camera);
+    renderGround(ctx, currentCanvasSize.height, camera, inferredGroundTop);
     renderPlatforms(ctx, platforms, camera);
     renderDangerButtons(ctx, dangerButtons, images, camera);
     renderDoor(ctx, door, images, camera);
@@ -788,6 +865,39 @@ const World2 = () => {
             Stay tuned further development.
           </p>
           <p className="text-white text-lg">See you in the next update.</p>
+        </div>
+      )}
+
+      {isPauseMenuOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
+          <div className="w-[min(92vw,520px)] border-4 border-amber-300 bg-slate-900 px-6 py-8 shadow-[0_0_0_6px_#1e293b]">
+            <h2 className="mb-8 text-center text-2xl font-black tracking-widest text-amber-300 [text-shadow:3px_3px_0_#000]">
+              PAUSE MENU
+            </h2>
+            <div className="space-y-4">
+              <button
+                onClick={() => setIsPauseMenuOpen(false)}
+                className="w-full border-2 border-cyan-300 bg-cyan-700 px-4 py-3 text-center font-extrabold tracking-wide text-white transition hover:bg-cyan-600"
+              >
+                RESUME
+              </button>
+              <button
+                onClick={() => router.push("/Home-page/Multiplayer")}
+                className="w-full border-2 border-red-300 bg-red-700 px-4 py-3 text-center font-extrabold tracking-wide text-white transition hover:bg-red-600"
+              >
+                MAIN MENU
+              </button>
+              <button
+                onClick={handleExitGame}
+                className="w-full border-2 border-rose-200 bg-rose-900 px-4 py-3 text-center font-extrabold tracking-wide text-white transition hover:bg-rose-800"
+              >
+                EXIT GAME
+              </button>
+            </div>
+            <p className="mt-6 text-center text-xs font-bold tracking-wide text-slate-300">
+              PRESS ESC TO CLOSE
+            </p>
+          </div>
         </div>
       )}
     </div>

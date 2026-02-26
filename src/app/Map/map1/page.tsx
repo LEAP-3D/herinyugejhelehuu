@@ -68,6 +68,7 @@ const World1Multiplayer = () => {
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 700 });
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [localDeath, setLocalDeath] = useState(false);
+  const [isPauseMenuOpen, setIsPauseMenuOpen] = useState(false);
   const gameStateRef = useRef(gameState);
   const hasKeyRef = useRef(hasKey);
   const canvasSizeRef = useRef(canvasSize);
@@ -107,6 +108,19 @@ const World1Multiplayer = () => {
   const groundY = gameData.current.getGroundY();
 
   const nextLevelRoute = "/Map/map2";
+  const handleExitGame = useCallback(() => {
+    socketRef.current?.disconnect();
+    [
+      "roomCode",
+      "playerId",
+      "isHost",
+      "maxPlayers",
+      "playerName",
+      "selectedLevel",
+    ].forEach((key) => localStorage.removeItem(key));
+    setIsPauseMenuOpen(false);
+    router.push("/");
+  }, [router]);
 
   const applyTetherConstraint = useCallback((players: GameState["players"]) => {
     // Tether mechanic disabled: use authoritative positions from server as-is.
@@ -128,6 +142,17 @@ const World1Multiplayer = () => {
   useEffect(() => {
     localDeathRef.current = localDeath;
   }, [localDeath]);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.repeat) return;
+      e.preventDefault();
+      setIsPauseMenuOpen((prev) => !prev);
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
 
   useEffect(() => {
     sfxRef.current = createGameSfxController();
@@ -531,7 +556,7 @@ const World1Multiplayer = () => {
 
     // Серверт input илгээх функц
     const sendInputToServer = () => {
-      if (!socketRef.current || !isConnected) return;
+      if (!socketRef.current || !isConnected || isPauseMenuOpen) return;
 
       const pid = localStorage.getItem("playerId");
       if (!pid) return;
@@ -543,6 +568,8 @@ const World1Multiplayer = () => {
         playerId: pid,
         playerIndex: playerSlot,
         roomCode,
+        canvasHeight: canvasSizeRef.current.height,
+        viewportHeight: window.innerHeight,
         keys: playerInput,
         input: playerInput,
         timestamp: Date.now(),
@@ -559,11 +586,13 @@ const World1Multiplayer = () => {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return;
       handler.handleKeyDown(e);
       scheduleUpdate();
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return;
       handler.handleKeyUp(e);
       scheduleUpdate();
     };
@@ -584,7 +613,26 @@ const World1Multiplayer = () => {
         handler.cleanup();
       }
     };
-  }, [isConnected]);
+  }, [isConnected, isPauseMenuOpen]);
+
+  useEffect(() => {
+    if (!isPauseMenuOpen || !socketRef.current || !isConnected) return;
+
+    const pid = localStorage.getItem("playerId");
+    if (!pid) return;
+
+    const roomCode = localStorage.getItem("roomCode");
+    socketRef.current.emit("playerInput", {
+      playerId: pid,
+      playerIndex: localPlayerSlotRef.current,
+      roomCode,
+      canvasHeight: canvasSizeRef.current.height,
+      viewportHeight: window.innerHeight,
+      keys: { left: false, right: false, jump: false },
+      input: { left: false, right: false, jump: false },
+      timestamp: Date.now(),
+    });
+  }, [isPauseMenuOpen, isConnected]);
 
   /**
    * ✅ RENDER LOOP
@@ -765,6 +813,39 @@ const World1Multiplayer = () => {
           </h2>
           <p className="text-white text-2xl mb-8">Epic teamwork!</p>
           <p className="text-white text-lg">Moving to next world...</p>
+        </div>
+      )}
+
+      {isPauseMenuOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
+          <div className="w-[min(92vw,520px)] border-4 border-amber-300 bg-slate-900 px-6 py-8 shadow-[0_0_0_6px_#1e293b]">
+            <h2 className="mb-8 text-center text-2xl font-black tracking-widest text-amber-300 [text-shadow:3px_3px_0_#000]">
+              PAUSE MENU
+            </h2>
+            <div className="space-y-4">
+              <button
+                onClick={() => setIsPauseMenuOpen(false)}
+                className="w-full border-2 border-cyan-300 bg-cyan-700 px-4 py-3 text-center font-extrabold tracking-wide text-white transition hover:bg-cyan-600"
+              >
+                RESUME
+              </button>
+              <button
+                onClick={() => router.push("/Home-page/Multiplayer")}
+                className="w-full border-2 border-red-300 bg-red-700 px-4 py-3 text-center font-extrabold tracking-wide text-white transition hover:bg-red-600"
+              >
+                MAIN MENU
+              </button>
+              <button
+                onClick={handleExitGame}
+                className="w-full border-2 border-rose-200 bg-rose-900 px-4 py-3 text-center font-extrabold tracking-wide text-white transition hover:bg-rose-800"
+              >
+                EXIT GAME
+              </button>
+            </div>
+            <p className="mt-6 text-center text-xs font-bold tracking-wide text-slate-300">
+              PRESS ESC TO CLOSE
+            </p>
+          </div>
         </div>
       )}
     </div>
