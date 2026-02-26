@@ -86,12 +86,7 @@ export default function Page() {
           />
         </button>
         <button onClick={goMulti} className="transition active:translate-y-1">
-          <NextImage
-            src="/Open-room.png"
-            alt="hello"
-            width={440}
-            height={108}
-          />
+          <NextImage src="/joinroom.png" alt="hello" width={440} height={108} />
         </button>
         <button
           onClick={goSettings}
@@ -128,9 +123,7 @@ export default function Page() {
           font-size: clamp(28px, 4.2vw, 52px);
           letter-spacing: 0.12em;
           color: #fff6d1;
-          text-shadow:
-            0 0 8px rgba(255, 240, 160, 0.85),
-            4px 4px 0 #000;
+          text-shadow: 0 0 8px rgba(255, 240, 160, 0.85), 4px 4px 0 #000;
           animation: pulseGlow 1.2s steps(2, end) infinite;
         }
 
