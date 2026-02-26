@@ -50,7 +50,6 @@ import {
   renderKey,
   renderPlayers,
   renderHUD,
-  renderControls,
   renderDeathScreen,
   updateClouds,
 } from "@/app/utils/renderWorld2";
@@ -759,7 +758,6 @@ const World2 = () => {
 
     // UI (no camera transform)
     renderHUD(ctx, hasKeyRef.current, state.playersAtDoor.length);
-    renderControls(ctx, currentCanvasSize.height);
 
     // Death screen
     if (shouldShowDeath) {
