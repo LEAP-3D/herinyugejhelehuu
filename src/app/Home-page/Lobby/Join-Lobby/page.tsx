@@ -472,30 +472,60 @@ export default function LobbyPage() {
         </div>
 
         {isHost && (
-          <div className="mt-4 flex items-center gap-3">
-            <span className="font-joystix text-white text-sm">Level:</span>
-            <button
-              type="button"
-              onClick={() => setSelectedLevel("map1")}
-              className={`px-4 py-2 text-xs font-joystix border-2 ${
-                selectedLevel === "map1"
-                  ? "bg-lime-400 text-black border-lime-200"
-                  : "bg-black/50 text-white border-white/40"
-              }`}
-            >
-              MAP 1
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedLevel("map2")}
-              className={`px-4 py-2 text-xs font-joystix border-2 ${
-                selectedLevel === "map2"
-                  ? "bg-lime-400 text-black border-lime-200"
-                  : "bg-black/50 text-white border-white/40"
-              }`}
-            >
-              MAP 2
-            </button>
+          <div className="mt-6 flex flex-col items-center gap-4">
+            <span className="font-joystix text-white text-2xl tracking-[0.12em]">
+              MAP
+            </span>
+            <div className="flex flex-wrap items-center justify-center gap-5">
+              <button
+                type="button"
+                onClick={() => setSelectedLevel("map1")}
+                className={`group relative w-56 overflow-hidden border-4 ${
+                  selectedLevel === "map1"
+                    ? "border-lime-300 shadow-[0_0_0_4px_rgba(132,204,22,0.7)]"
+                    : "border-white/60"
+                }`}
+              >
+                <div className="relative h-32 w-full">
+                  <NextImage
+                    src="/ariinzurag.png"
+                    alt="Map 1 Day"
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-amber-200/20" />
+                </div>
+                <div className="bg-black/70 px-3 py-2 text-center">
+                  <div className="font-joystix text-base text-white">MAP 1</div>
+                  <div className="font-joystix text-xs text-amber-200">DAY</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedLevel("map2")}
+                className={`group relative w-56 overflow-hidden border-4 ${
+                  selectedLevel === "map2"
+                    ? "border-lime-300 shadow-[0_0_0_4px_rgba(132,204,22,0.7)]"
+                    : "border-white/60"
+                }`}
+              >
+                <div className="relative h-32 w-full">
+                  <NextImage
+                    src="/ariinzurag.png"
+                    alt="Map 2 Night"
+                    fill
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-indigo-950/55" />
+                  <div className="absolute right-4 top-3 h-5 w-5 rounded-full bg-yellow-100 shadow-[0_0_14px_4px_rgba(255,255,180,0.9)]" />
+                </div>
+                <div className="bg-black/70 px-3 py-2 text-center">
+                  <div className="font-joystix text-base text-white">MAP 2</div>
+                  <div className="font-joystix text-xs text-cyan-200">NIGHT</div>
+                </div>
+              </button>
+            </div>
           </div>
         )}
 

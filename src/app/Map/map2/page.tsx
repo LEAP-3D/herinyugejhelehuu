@@ -61,6 +61,11 @@ import {
   createGameSfxController,
   type GameSfxController,
 } from "@/app/utils/gameSfx";
+import {
+  resolveSocketUrl,
+  getConnectionErrorMessage,
+  hasLocalhostSocketMisconfig,
+} from "@/app/utils/socketUrl";
 
 // Socket.IO types
 interface GameState {
@@ -273,8 +278,7 @@ const World2 = () => {
    * ✅ SOCKET CONNECTION
    */
   useEffect(() => {
-    const SERVER_URL =
-      process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:4000";
+    const SERVER_URL = resolveSocketUrl();
     const maxReconnectAttempts = 5;
     const maxJoinRetryAttempts = 8;
     const reconnectAttempts = { current: 0 };
@@ -292,6 +296,13 @@ const World2 = () => {
     }
 
     setRoomCode(rc);
+
+    if (hasLocalhostSocketMisconfig(SERVER_URL)) {
+      setConnectionError(
+        "Socket URL is pointing to localhost in production. Set NEXT_PUBLIC_BACKEND_URL.",
+      );
+      return;
+    }
 
     console.log("Attempting to connect to:", SERVER_URL);
     console.log("Room Code:", rc, "| Player ID:", pid);
@@ -403,14 +414,10 @@ const World2 = () => {
       console.error("❌ Connection error:", error);
       reconnectAttempts.current++;
 
-      let userMessage = "Unable to connect to server";
-      if (error.message?.includes("xhr poll error")) {
-        userMessage = `Backend server not responding on ${SERVER_URL}`;
-      } else if (error.message?.includes("websocket error")) {
-        userMessage = "WebSocket connection failed - Check CORS";
-      } else if (error.message?.includes("timeout")) {
-        userMessage = "Connection timeout";
-      }
+      let userMessage = getConnectionErrorMessage(
+        error.message || "Unable to connect to server",
+        SERVER_URL,
+      );
 
       if (reconnectAttempts.current <= maxReconnectAttempts) {
         userMessage += ` (${reconnectAttempts.current}/${maxReconnectAttempts})`;
