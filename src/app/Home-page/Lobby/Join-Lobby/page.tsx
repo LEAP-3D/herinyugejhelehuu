@@ -259,7 +259,15 @@ export default function LobbyPage() {
       socketRef.current?.disconnect();
       socketRef.current = null;
     };
-  }, [hydrated, roomCode, playerId, isHost, router, getErrMessage, levelToRoute]);
+  }, [
+    hydrated,
+    roomCode,
+    playerId,
+    isHost,
+    router,
+    getErrMessage,
+    levelToRoute,
+  ]);
 
   const myServerHero = useMemo(() => {
     if (!roomState || !playerId) return null;
@@ -488,7 +496,7 @@ export default function LobbyPage() {
               >
                 <div className="relative h-32 w-full">
                   <NextImage
-                    src="/ariinzurag.png"
+                    src="/map1.png"
                     alt="Map 1 Day"
                     fill
                     className="object-cover"
@@ -512,7 +520,7 @@ export default function LobbyPage() {
               >
                 <div className="relative h-32 w-full">
                   <NextImage
-                    src="/ariinzurag.png"
+                    src="/map2.png"
                     alt="Map 2 Night"
                     fill
                     className="object-cover"
@@ -522,7 +530,9 @@ export default function LobbyPage() {
                 </div>
                 <div className="bg-black/70 px-3 py-2 text-center">
                   <div className="font-joystix text-base text-white">MAP 2</div>
-                  <div className="font-joystix text-xs text-cyan-200">NIGHT</div>
+                  <div className="font-joystix text-xs text-cyan-200">
+                    NIGHT
+                  </div>
                 </div>
               </button>
             </div>
@@ -541,16 +551,14 @@ export default function LobbyPage() {
           {isHost
             ? "HOST: Press READY to start map"
             : meReady
-              ? "✅ Ready! Waiting host..."
-              : "Press READY after choosing hero"}
+            ? "✅ Ready! Waiting host..."
+            : "Press READY after choosing hero"}
         </div>
       </div>
       <style jsx>{`
         .pixel-name-frame {
           border: 4px solid #f3e7c6;
-          box-shadow:
-            0 0 0 4px #2b2b2b,
-            0 8px 0 rgba(0, 0, 0, 0.45);
+          box-shadow: 0 0 0 4px #2b2b2b, 0 8px 0 rgba(0, 0, 0, 0.45);
           image-rendering: pixelated;
           clip-path: polygon(
             0 6px,
@@ -571,9 +579,7 @@ export default function LobbyPage() {
         .pixel-name-input {
           background: #161616;
           border: 3px solid #f3e7c6;
-          box-shadow:
-            inset 0 0 0 2px #0b0b0b,
-            0 4px 0 rgba(0, 0, 0, 0.35);
+          box-shadow: inset 0 0 0 2px #0b0b0b, 0 4px 0 rgba(0, 0, 0, 0.35);
           clip-path: polygon(
             0 4px,
             4px 4px,
