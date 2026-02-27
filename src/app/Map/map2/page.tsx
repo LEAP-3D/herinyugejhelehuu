@@ -173,7 +173,7 @@ const World2 = () => {
   const cloudsRef = useRef<Cloud[]>(createClouds());
   const keyRef = useRef<Key>({
     x: 2400,
-    y: groundY - 220,
+    y: groundY - 160,
     width: 40,
     height: 40,
     collected: false,
@@ -215,7 +215,7 @@ const World2 = () => {
       keyRef.current = {
         ...keyRef.current,
         x: 2400,
-        y: nextGroundY - 220,
+        y: nextGroundY - 160,
       };
       doorRef.current = {
         ...doorRef.current,
@@ -346,12 +346,6 @@ const World2 = () => {
         ]),
       );
 
-      console.log("📥 Received game state:", {
-        playerCount: Object.keys(mergedPlayers).length,
-        players: mergedPlayers,
-        status: state.gameStatus,
-      });
-
       setGameState({
         ...state,
         players: mergedPlayers,
@@ -408,8 +402,6 @@ const World2 = () => {
         name: playerName,
       });
       s.emit("joinRoom", { roomCode: rc, playerId: pid, name: playerName });
-      // Ensure backend world is synced to map2 after route transition.
-      s.emit("setLevel", { level: "map2" });
     });
 
     s.on("connect_error", (error: Error) => {
@@ -491,6 +483,9 @@ const World2 = () => {
           maxPlayers: Number.isFinite(maxPlayers) ? maxPlayers : 2,
           hostId: pid,
           playerName,
+          level: "map2",
+          world: 2,
+          canvasHeight: canvasSizeRef.current.height,
         });
         return;
       }
@@ -524,7 +519,6 @@ const World2 = () => {
       if (Number.isFinite(numericId) && numericId >= 1 && numericId <= 4) {
         localPlayerSlotRef.current = numericId;
       }
-      s.emit("setLevel", { level: "map2" });
       joinRetryCountRef.current = 0;
       if (joinRetryTimerRef.current) {
         clearTimeout(joinRetryTimerRef.current);
@@ -615,7 +609,7 @@ const World2 = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    tickId = setInterval(sendInputToServer, 1000 / 30);
+    tickId = setInterval(sendInputToServer, 1000 / 20);
 
     return () => {
       // Cleanup

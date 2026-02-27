@@ -227,12 +227,6 @@ const World1Multiplayer = () => {
         ]),
       );
 
-      console.log("📥 Received game state:", {
-        playerCount: Object.keys(mergedPlayers).length,
-        players: mergedPlayers,
-        status: state.gameStatus,
-      });
-
       setGameState({
         ...state,
         players: mergedPlayers,
@@ -408,6 +402,8 @@ const World1Multiplayer = () => {
           maxPlayers: Number.isFinite(maxPlayers) ? maxPlayers : 2,
           hostId: pid,
           playerName,
+          level: "map1",
+          world: 1,
         });
         return;
       }
@@ -599,7 +595,7 @@ const World1Multiplayer = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    tickId = setInterval(sendInputToServer, 1000 / 30);
+    tickId = setInterval(sendInputToServer, 1000 / 20);
 
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
