@@ -180,7 +180,7 @@ const World2 = () => {
   });
   const doorRef = useRef<Door>({
     x: 4400,
-    y: groundY - 120,
+    y: groundY - 80,
     width: 80,
     height: 120,
   });
@@ -220,7 +220,7 @@ const World2 = () => {
       doorRef.current = {
         ...doorRef.current,
         x: 4400,
-        y: nextGroundY - 120,
+        y: nextGroundY - 80,
       };
     };
 
@@ -408,6 +408,8 @@ const World2 = () => {
         name: playerName,
       });
       s.emit("joinRoom", { roomCode: rc, playerId: pid, name: playerName });
+      // Ensure backend world is synced to map2 after route transition.
+      s.emit("setLevel", { level: "map2" });
     });
 
     s.on("connect_error", (error: Error) => {
@@ -522,6 +524,7 @@ const World2 = () => {
       if (Number.isFinite(numericId) && numericId >= 1 && numericId <= 4) {
         localPlayerSlotRef.current = numericId;
       }
+      s.emit("setLevel", { level: "map2" });
       joinRetryCountRef.current = 0;
       if (joinRetryTimerRef.current) {
         clearTimeout(joinRetryTimerRef.current);
