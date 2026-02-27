@@ -19,6 +19,8 @@ export class GameData {
   getPlatforms(): Platform[] {
     return [
       { x: 0, y: this.groundY + 40, width: 250, height: 20 },
+      // Helper bridge to make map1 easier for all players.
+      { x: 250, y: this.groundY + 40, width: 5500, height: 20 },
       { x: 320, y: this.groundY + 40, width: 60, height: 20 },
       { x: 450, y: this.groundY + 40, width: 60, height: 20 },
       { x: 580, y: this.groundY + 40, width: 60, height: 20 },
@@ -56,90 +58,11 @@ export class GameData {
   }
 
   getMovingPlatforms(): MovingPlatform[] {
-    return [
-      {
-        x: 650,
-        y: this.groundY - 250,
-        width: 70,
-        height: 20,
-        startX: 605,
-        endX: 720,
-        speed: 2,
-        direction: 1,
-      },
-      {
-        x: 1120,
-        y: this.groundY - 60,
-        width: 60,
-        height: 20,
-        startX: 1045,
-        endX: 1150,
-        speed: 1.8,
-        direction: 1,
-      },
-      {
-        x: 1730,
-        y: this.groundY - 240,
-        width: 60,
-        height: 20,
-        startX: 1685,
-        endX: 1790,
-        speed: 2.5,
-        direction: 1,
-      },
-      {
-        x: 2410,
-        y: this.groundY - 90,
-        width: 60,
-        height: 20,
-        startX: 2355,
-        endX: 2460,
-        speed: 2,
-        direction: 1,
-      },
-      {
-        x: 2815,
-        y: this.groundY - 275,
-        width: 60,
-        height: 20,
-        startX: 2765,
-        endX: 2865,
-        speed: 1.8,
-        direction: 1,
-      },
-    ];
+    return [];
   }
 
   getFallingPlatforms(): FallingPlatform[] {
-    return [
-      {
-        x: 275,
-        y: this.groundY - 50,
-        width: 55,
-        height: 20,
-        falling: false,
-        fallTimer: 0,
-        originalY: this.groundY - 50,
-      },
-      {
-        x: 1225,
-        y: this.groundY - 15,
-        width: 55,
-        height: 20,
-        falling: false,
-        fallTimer: 0,
-        originalY: this.groundY - 15,
-      },
-      {
-        x: 2220,
-        y: this.groundY - 205,
-        width: 55,
-        height: 20,
-        falling: false,
-        fallTimer: 0,
-        originalY: this.groundY - 205,
-      },
-    ];
+    return [];
   }
 
   getClouds(): Cloud[] {
@@ -159,7 +82,7 @@ export class GameData {
   getKey(): Key {
     return {
       x: 1950,
-      y: this.groundY - 330,
+      y: this.groundY - 85,
       width: 40,
       height: 40,
       collected: false,
@@ -169,8 +92,7 @@ export class GameData {
   getDoor(): Door {
     return {
       x: 3030,
-      // Place door on the nearby high platform so it is reachable in multiplayer.
-      y: this.groundY - 165,
+      y: this.groundY - 95,
       width: 55,
       height: 75,
     };
