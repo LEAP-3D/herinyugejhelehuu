@@ -189,7 +189,7 @@ export const createClouds = (): Cloud[] => [
 // Түлхүүр
 export const createKey = (groundY: number): Key => ({
   x: 3740,
-  y: groundY - 280,
+  y: groundY - 220,
   width: 40,
   height: 40,
   collected: false,

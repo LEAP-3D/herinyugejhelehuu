@@ -14,9 +14,11 @@ type RoomState = {
   maxPlayers: number;
   players: Record<string, PlayerState>;
   level?: LevelKey;
+  world?: 1 | 2;
 };
 type GameStateEvent = {
   gameStatus?: "waiting" | "playing" | "won" | "dead" | string;
+  world?: 1 | 2;
 };
 
 type SocketErr = { message?: string };
@@ -48,6 +50,9 @@ export default function LobbyPage() {
 
   const levelToRoute = useCallback((level: LevelKey) => {
     return level === "map2" ? "/Map/map2" : "/Map/map1";
+  }, []);
+  const worldToLevel = useCallback((world?: 1 | 2): LevelKey => {
+    return world === 2 ? "map2" : "map1";
   }, []);
 
   const getErrMessage = useCallback((e: unknown, fallback: string) => {
@@ -154,6 +159,10 @@ export default function LobbyPage() {
     };
 
     const onRoomState = (state: RoomState) => {
+      if (state.world === 1 || state.world === 2) {
+        const levelFromWorld = worldToLevel(state.world);
+        setSelectedLevel(levelFromWorld);
+      }
       if (state.level === "map1" || state.level === "map2") {
         setSelectedLevel(state.level);
       }
@@ -188,12 +197,24 @@ export default function LobbyPage() {
     };
 
     const onStartGame = () => {
-      router.push(levelToRoute(selectedLevelRef.current));
+      const serverWorld = roomState?.world;
+      const targetLevel =
+        serverWorld === 1 || serverWorld === 2
+          ? worldToLevel(serverWorld)
+          : selectedLevelRef.current;
+      router.push(levelToRoute(targetLevel));
     };
 
     const onGameState = (state: GameStateEvent) => {
+      if (state.world === 1 || state.world === 2) {
+        setSelectedLevel(worldToLevel(state.world));
+      }
       if (state?.gameStatus === "playing") {
-        router.push(levelToRoute(selectedLevelRef.current));
+        const targetLevel =
+          state.world === 1 || state.world === 2
+            ? worldToLevel(state.world)
+            : selectedLevelRef.current;
+        router.push(levelToRoute(targetLevel));
       }
     };
 
@@ -225,6 +246,8 @@ export default function LobbyPage() {
           roomCode,
           maxPlayers: Number.isFinite(maxPlayers) ? maxPlayers : 2,
           hostId: playerId,
+          level: selectedLevelRef.current,
+          world: selectedLevelRef.current === "map2" ? 2 : 1,
         });
         return;
       }
@@ -267,6 +290,8 @@ export default function LobbyPage() {
     router,
     getErrMessage,
     levelToRoute,
+    roomState?.world,
+    worldToLevel,
   ]);
 
   const myServerHero = useMemo(() => {
