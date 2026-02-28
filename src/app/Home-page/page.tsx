@@ -85,7 +85,7 @@ export default function Page() {
         style={{ backgroundImage: `url("/Toon-friends.png")` }}
       />
 
-      <div className="relative z-10 flex min-h-screen w-full flex-col items-center justify-start gap-4 px-4 pt-24 md:pt-32">
+      <div className="relative z-10 flex min-h-screen w-full flex-col items-center justify-center gap-4 px-4">
         <button
           className="transition active:translate-y-1"
           onClick={handleMoreButton}
