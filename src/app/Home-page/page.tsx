@@ -8,9 +8,11 @@ export default function Page() {
   const [backgroundReady, setBackgroundReady] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     let loaded = 0;
     const total = 2;
     const onAssetDone = () => {
+      if (cancelled) return;
       loaded += 1;
       if (loaded >= total) setBackgroundReady(true);
     };
@@ -25,6 +27,14 @@ export default function Page() {
 
     bg.src = "/ariinzurag.png";
     overlay.src = "/Toon-friends.png";
+
+    return () => {
+      cancelled = true;
+      bg.onload = null;
+      bg.onerror = null;
+      overlay.onload = null;
+      overlay.onerror = null;
+    };
   }, []);
 
   const handleMoreButton = () => {
@@ -36,149 +46,80 @@ export default function Page() {
   const goSettings = () => {
     router.push("/Home-page/Player");
   };
+
   return (
     <>
       {!backgroundReady && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
-          <div className="loader-shell">
-            <div className="loader-text">
+          <div className="home-loader-shell">
+            <div className="home-loader-text">
               LOADING
-              <span className="loader-dots" aria-hidden="true">
-                ...
+              <span className="home-loader-dots" aria-hidden>
+                {"..."}
               </span>
             </div>
-            <div className="loader-sub">PREPARING ADVENTURE</div>
+            <div className="home-loader-sub">PREPARING ADVENTURE</div>
           </div>
         </div>
       )}
 
       {/* Background */}
       <div
-        className={`absolute inset-0 bg-cover bg-center bg-no-repeat -z-10 transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-cover bg-center bg-no-repeat -z-10 transition-opacity duration-300 ${
           backgroundReady ? "opacity-100" : "opacity-0"
         }`}
         style={{ backgroundImage: "url('/ariinzurag.png')" }}
       />
 
       <div
-        className={`absolute inset-0 bg-black/10 z-0 transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-black/10 z-0 transition-opacity duration-300 ${
           backgroundReady ? "opacity-100" : "opacity-0"
         }`}
       />
 
-      {/* Overlay (энэ нь бүүдгэр болгодог) */}
+      {/* Overlay */}
       <div
-        className={`absolute inset-0 bg-cover bg-center bg-no-repeat z-0 opacity-120 p-0 transition-opacity duration-300 ${
+        className={`fixed inset-0 bg-cover bg-center bg-no-repeat z-0 transition-opacity duration-300 ${
           backgroundReady ? "opacity-100" : "opacity-0"
         }`}
         style={{ backgroundImage: `url("/Toon-friends.png")` }}
       />
-      <div className="relative center flexrelative z-10 min-h-screen flex flex-col items-center justify-start pt-124 gap-4.75 pr-30">
+
+      <div className="relative z-10 flex min-h-screen w-full flex-col items-center justify-start gap-4 px-4 pt-24 md:pt-32">
         <button
           className="transition active:translate-y-1"
           onClick={handleMoreButton}
         >
           <NextImage
             src="/Create-room.png"
-            alt="hello"
+            alt="Create room"
             width={440}
             height={108}
+            className="h-auto w-[260px] max-w-full md:w-[440px]"
           />
         </button>
         <button onClick={goMulti} className="transition active:translate-y-1">
-          <NextImage src="/joinroom.png" alt="hello" width={440} height={108} />
+          <NextImage
+            src="/joinroom.png"
+            alt="Join room"
+            width={440}
+            height={108}
+            className="h-auto w-[260px] max-w-full md:w-[440px]"
+          />
         </button>
         <button
           onClick={goSettings}
           className="transition active:translate-y-1"
         >
-          <NextImage src="/Settings.png" alt="hello" width={440} height={108} />
+          <NextImage
+            src="/Settings.png"
+            alt="Settings"
+            width={440}
+            height={108}
+            className="h-auto w-[260px] max-w-full md:w-[440px]"
+          />
         </button>
       </div>
-      <style jsx>{`
-        .loader-shell {
-          position: relative;
-          padding: 28px 34px;
-          background: transparent;
-          image-rendering: pixelated;
-          overflow: hidden;
-        }
-
-        .loader-shell::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background: repeating-linear-gradient(
-            to bottom,
-            transparent 0,
-            transparent 4px,
-            rgba(255, 255, 255, 0.04) 5px
-          );
-          animation: scanlines 1.1s linear infinite;
-          pointer-events: none;
-        }
-
-        .loader-text {
-          font-family: "Joystix", monospace;
-          font-size: clamp(28px, 4.2vw, 52px);
-          letter-spacing: 0.12em;
-          color: #fff6d1;
-          text-shadow: 0 0 8px rgba(255, 240, 160, 0.85), 4px 4px 0 #000;
-          animation: pulseGlow 1.2s steps(2, end) infinite;
-        }
-
-        .loader-dots {
-          display: inline-block;
-          width: 3ch;
-          animation: dots 1s steps(4, end) infinite;
-        }
-
-        .loader-sub {
-          margin-top: 12px;
-          font-family: "Joystix", monospace;
-          font-size: clamp(10px, 1.6vw, 14px);
-          letter-spacing: 0.14em;
-          color: #ffdd8a;
-          animation: blinkText 0.9s steps(2, end) infinite;
-        }
-
-        @keyframes pulseGlow {
-          0%,
-          100% {
-            transform: translateY(0);
-            filter: brightness(1);
-          }
-          50% {
-            transform: translateY(-1px);
-            filter: brightness(1.2);
-          }
-        }
-
-        @keyframes dots {
-          0% {
-            width: 0ch;
-          }
-          100% {
-            width: 3ch;
-          }
-        }
-
-        @keyframes blinkText {
-          50% {
-            opacity: 0.35;
-          }
-        }
-
-        @keyframes scanlines {
-          0% {
-            transform: translateY(0);
-          }
-          100% {
-            transform: translateY(5px);
-          }
-        }
-      `}</style>
     </>
   );
 }
-//asdasd

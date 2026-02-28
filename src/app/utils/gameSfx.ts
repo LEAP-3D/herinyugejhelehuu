@@ -8,11 +8,14 @@ type ManagedSfx = {
   jump: HTMLAudioElement;
   death: HTMLAudioElement;
   deathLayer: HTMLAudioElement;
+  deathQuiet: HTMLAudioElement;
+  deathLayerQuiet: HTMLAudioElement;
 };
 
 export type GameSfxController = {
   playJump: () => void;
-  playDeath: () => void;
+  // eslint-disable-next-line no-unused-vars
+  playDeath: (variant?: "normal" | "danger") => void;
   cleanup: () => void;
 };
 
@@ -21,6 +24,8 @@ const applyVolume = (sfx: ManagedSfx, settings: AudioSettings) => {
   sfx.jump.volume = Math.min(1, baseVolume * 0.8);
   sfx.death.volume = Math.min(1, baseVolume * 1.5);
   sfx.deathLayer.volume = Math.min(1, baseVolume * 1.25);
+  sfx.deathQuiet.volume = Math.min(1, baseVolume * 0.6);
+  sfx.deathLayerQuiet.volume = Math.min(1, baseVolume * 0.45);
 };
 
 const safePlay = (audio: HTMLAudioElement) => {
@@ -50,11 +55,15 @@ export const createGameSfxController = (): GameSfxController | null => {
     jump: new Audio("/audio/jump.mp3"),
     death: new Audio("/audio/death.mp3"),
     deathLayer: new Audio("/audio/death.mp3"),
+    deathQuiet: new Audio("/audio/death.mp3"),
+    deathLayerQuiet: new Audio("/audio/death.mp3"),
   };
 
   sfx.jump.preload = "auto";
   sfx.death.preload = "auto";
   sfx.deathLayer.preload = "auto";
+  sfx.deathQuiet.preload = "auto";
+  sfx.deathLayerQuiet.preload = "auto";
 
   applyVolume(sfx, getAudioSettings());
 
@@ -65,6 +74,8 @@ export const createGameSfxController = (): GameSfxController | null => {
     primeAudio(sfx.jump);
     primeAudio(sfx.death);
     primeAudio(sfx.deathLayer);
+    primeAudio(sfx.deathQuiet);
+    primeAudio(sfx.deathLayerQuiet);
   };
 
   const onSettingsChanged = (
@@ -95,7 +106,12 @@ export const createGameSfxController = (): GameSfxController | null => {
     playJump: () => {
       safePlay(sfx.jump);
     },
-    playDeath: () => {
+    playDeath: (variant = "normal") => {
+      if (variant === "danger") {
+        safePlay(sfx.deathQuiet);
+        safePlay(sfx.deathLayerQuiet);
+        return;
+      }
       safePlay(sfx.death);
       safePlay(sfx.deathLayer);
     },
@@ -108,6 +124,8 @@ export const createGameSfxController = (): GameSfxController | null => {
       sfx.jump.pause();
       sfx.death.pause();
       sfx.deathLayer.pause();
+      sfx.deathQuiet.pause();
+      sfx.deathLayerQuiet.pause();
     },
   };
 };
