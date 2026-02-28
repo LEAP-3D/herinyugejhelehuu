@@ -18,7 +18,7 @@ export class GameData {
 
   getPlatforms(): Platform[] {
     return [
-      { x: 0, y: this.groundY + 40, width: 250, height: 20 },
+      { x: 0, y: this.groundY + 40, width: 420, height: 20 },
       { x: 320, y: this.groundY + 40, width: 60, height: 20 },
       { x: 450, y: this.groundY + 40, width: 60, height: 20 },
       { x: 580, y: this.groundY + 40, width: 60, height: 20 },

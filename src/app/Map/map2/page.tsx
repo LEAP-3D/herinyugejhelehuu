@@ -719,14 +719,18 @@ const World2 = () => {
       sfxRef.current?.playJump();
     }
 
+    const hitDangerButton = localPlayer
+      ? checkDangerButtonCollision(localPlayer, dangerButtons)
+      : false;
+    const fellOffScreen = localPlayer
+      ? checkFallOffScreen(localPlayer, currentCanvasSize.height)
+      : false;
     const isDeadByWorldRules = localPlayer
-      ? localPlayer.dead ||
-        checkDangerButtonCollision(localPlayer, dangerButtons) ||
-        checkFallOffScreen(localPlayer, currentCanvasSize.height)
+      ? localPlayer.dead || hitDangerButton || fellOffScreen
       : false;
     const shouldShowDeath = state.gameStatus === "dead" || isDeadByWorldRules;
     if (shouldShowDeath && !prevShouldShowDeathRef.current) {
-      sfxRef.current?.playDeath();
+      sfxRef.current?.playDeath(hitDangerButton ? "danger" : "normal");
     }
     prevShouldShowDeathRef.current = shouldShowDeath;
 
