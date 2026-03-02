@@ -225,17 +225,24 @@ export const renderPlayers = (
     );
 
     if (playerImage && playerImage.naturalWidth > 0) {
+      const drawX = Math.round(player.x);
+      const drawY = Math.round(player.y);
       ctx.drawImage(
         playerImage,
-        player.x,
-        player.y,
+        drawX,
+        drawY,
         player.width,
         player.height
       );
     } else {
       // Fallback - өнгөт дөрвөлжин
       ctx.fillStyle = player.color;
-      ctx.fillRect(player.x, player.y, player.width, player.height);
+      ctx.fillRect(
+        Math.round(player.x),
+        Math.round(player.y),
+        player.width,
+        player.height
+      );
     }
 
     // Тоглогчийн нэр/дугаар
@@ -246,7 +253,11 @@ export const renderPlayers = (
       typeof player.name === "string" && player.name.trim().length > 0
         ? player.name.trim().slice(0, 14)
         : `P${player.id}`;
-    ctx.fillText(label, player.x + player.width / 2, player.y - 10);
+    ctx.fillText(
+      label,
+      Math.round(player.x + player.width / 2),
+      Math.round(player.y - 10)
+    );
   });
 
   ctx.restore();

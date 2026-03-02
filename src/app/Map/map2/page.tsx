@@ -124,6 +124,7 @@ const World2 = () => {
   const sfxRef = useRef<GameSfxController | null>(null);
   const prevLocalPlayerRef = useRef<{ onGround: boolean } | null>(null);
   const prevShouldShowDeathRef = useRef(false);
+  const smoothedPlayersRef = useRef<Record<string, Player>>({});
 
   const animTimer = useRef(0);
   const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -324,6 +325,7 @@ const World2 = () => {
     const resetClientState = () => {
       setIsConnected(false);
       setIsReconnecting(false);
+      smoothedPlayersRef.current = {};
       setGameState({
         players: {},
         keyCollected: false,
@@ -572,8 +574,6 @@ const World2 = () => {
         playerId: pid,
         playerIndex: playerSlot,
         roomCode,
-        canvasHeight: canvasSizeRef.current.height,
-        viewportHeight: window.innerHeight,
         keys: playerInput,
         input: playerInput,
         timestamp: Date.now(),
@@ -632,8 +632,6 @@ const World2 = () => {
       playerId: pid,
       playerIndex: localPlayerSlotRef.current,
       roomCode,
-      canvasHeight: canvasSizeRef.current.height,
-      viewportHeight: window.innerHeight,
       keys: { left: false, right: false, jump: false },
       input: { left: false, right: false, jump: false },
       timestamp: Date.now(),
@@ -650,26 +648,55 @@ const World2 = () => {
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
 
     const state = gameStateRef.current;
     const currentCanvasSize = canvasSizeRef.current;
-    const players = Object.values(state.players);
+    const localPlayerId = localStorage.getItem("playerId")?.trim() ?? "";
+    const serverPlayerEntries = Object.entries(state.players ?? {});
+    const smoothedPlayers = smoothedPlayersRef.current;
+
+    const LERP_PRESET: "tight" | "smooth" = "tight";
+    const LIVE_LERP = LERP_PRESET === "tight" ? 0.28 : 0.18;
+    const SNAP_DISTANCE = 120;
+
+    const livePlayerIds = new Set<string>();
+    for (const [playerKey, playerValue] of serverPlayerEntries) {
+      livePlayerIds.add(playerKey);
+
+      if (playerKey === localPlayerId) {
+        smoothedPlayers[playerKey] = { ...playerValue };
+        continue;
+      }
+
+      const previous = smoothedPlayers[playerKey];
+      if (!previous) {
+        smoothedPlayers[playerKey] = { ...playerValue };
+        continue;
+      }
+
+      const dx = playerValue.x - previous.x;
+      const dy = playerValue.y - previous.y;
+      const shouldSnap = Math.abs(dx) > SNAP_DISTANCE || Math.abs(dy) > SNAP_DISTANCE;
+
+      smoothedPlayers[playerKey] = {
+        ...playerValue,
+        x: shouldSnap ? playerValue.x : previous.x + dx * LIVE_LERP,
+        y: shouldSnap ? playerValue.y : previous.y + dy * LIVE_LERP,
+      };
+    }
+
+    Object.keys(smoothedPlayers).forEach((playerKey) => {
+      if (!livePlayerIds.has(playerKey)) {
+        delete smoothedPlayers[playerKey];
+      }
+    });
+
+    const players = Object.values(smoothedPlayers);
     const syncedDangerButtons =
       Array.isArray(state.dangerButtons) && state.dangerButtons.length > 0
         ? state.dangerButtons
         : dangerButtonsRef.current;
-    const inferredGroundTop =
-      syncedDangerButtons.length > 0
-        ? syncedDangerButtons[0].y + syncedDangerButtons[0].height
-        : platformsRef.current[0]?.y ?? currentCanvasSize.height - 40;
-    const platforms = [
-      {
-        x: 0,
-        y: inferredGroundTop,
-        width: 8200,
-        height: 20,
-      },
-    ];
     const dangerButtons = syncedDangerButtons;
     const clouds = cloudsRef.current;
     const key = state.key
@@ -685,6 +712,15 @@ const World2 = () => {
           ...state.door,
         }
       : doorRef.current;
+    const inferredGroundTop = door.y + door.height;
+    const platforms = [
+      {
+        x: 0,
+        y: inferredGroundTop,
+        width: 8200,
+        height: 20,
+      },
+    ];
     const camera = cameraRef.current;
 
     animTimer.current++;
@@ -700,7 +736,6 @@ const World2 = () => {
     // Update key collected state
     key.collected = state.keyCollected;
 
-    const localPlayerId = localStorage.getItem("playerId")?.trim();
     const localPlayer = localPlayerId
       ? state.players[localPlayerId]
       : undefined;

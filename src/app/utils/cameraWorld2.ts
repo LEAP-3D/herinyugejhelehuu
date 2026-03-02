@@ -27,7 +27,8 @@ export const applyCameraTransform = (
   ctx: CanvasRenderingContext2D,
   camera: Camera,
 ): void => {
-  ctx.translate(-camera.x, 0);
+  const snappedCameraX = Math.round(camera.x);
+  ctx.translate(-snappedCameraX, 0);
 };
 
 export const applyCameraTransformParallax = (
@@ -35,5 +36,6 @@ export const applyCameraTransformParallax = (
   camera: Camera,
   parallaxFactor: number = 0.3,
 ): void => {
-  ctx.translate(-camera.x * parallaxFactor, 0);
+  const snappedParallaxX = Math.round(camera.x * parallaxFactor);
+  ctx.translate(-snappedParallaxX, 0);
 };
