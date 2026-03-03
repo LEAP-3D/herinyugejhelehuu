@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // backend-server-fixed.js
 const express = require("express");
 const http = require("http");
