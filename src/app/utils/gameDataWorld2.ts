@@ -59,8 +59,8 @@ export interface Camera {
 }
 
 // Тоглоомын тогтмолууд
-export const GRAVITY = 0.3;
-export const JUMP_FORCE = -14;
+export const GRAVITY = 0.62;
+export const JUMP_FORCE = -10.4;
 export const MOVE_SPEED = 3;
 export const PLAYER_WIDTH = 45;
 export const PLAYER_HEIGHT = 55;
@@ -137,21 +137,24 @@ export const createPlatforms = (groundY: number): Platform[] => [
 
 // Аюултай товчнууд
 export const createDangerButtons = (groundY: number): DangerButton[] => [
-  { x: 770, y: groundY + 5, width: 28, height: 24 },
-  { x: 1250, y: groundY + 5, width: 28, height: 24 },
-  { x: 1830, y: groundY + 5, width: 28, height: 24 },
-  { x: 2310, y: groundY + 5, width: 28, height: 24 },
-  { x: 2790, y: groundY + 5, width: 28, height: 24 },
-  { x: 3300, y: groundY + 5, width: 28, height: 24 },
-  { x: 3780, y: groundY + 5, width: 28, height: 24 },
-  { x: 4260, y: groundY + 5, width: 28, height: 24 },
-  { x: 4740, y: groundY + 5, width: 28, height: 24 },
-  { x: 5220, y: groundY + 5, width: 28, height: 24 },
-  { x: 5730, y: groundY + 5, width: 28, height: 24 },
-  { x: 6210, y: groundY + 5, width: 28, height: 24 },
-  { x: 6690, y: groundY + 5, width: 28, height: 24 },
-  { x: 7170, y: groundY + 5, width: 28, height: 24 },
-  { x: 7890, y: groundY + 5, width: 28, height: 24 },
+  { x: 680, y: groundY + 16, width: 28, height: 24 },
+  { x: 1040, y: groundY + 16, width: 28, height: 24 },
+  { x: 1420, y: groundY + 16, width: 28, height: 24 },
+  { x: 1880, y: groundY + 16, width: 28, height: 24 },
+  { x: 2190, y: groundY + 16, width: 28, height: 24 },
+  { x: 2660, y: groundY + 16, width: 28, height: 24 },
+  { x: 3010, y: groundY + 16, width: 28, height: 24 },
+  { x: 3460, y: groundY + 16, width: 28, height: 24 },
+  { x: 3890, y: groundY + 16, width: 28, height: 24 },
+  { x: 4210, y: groundY + 16, width: 28, height: 24 },
+  { x: 4680, y: groundY + 16, width: 28, height: 24 },
+  { x: 5040, y: groundY + 16, width: 28, height: 24 },
+  { x: 5510, y: groundY + 16, width: 28, height: 24 },
+  { x: 5920, y: groundY + 16, width: 28, height: 24 },
+  { x: 6380, y: groundY + 16, width: 28, height: 24 },
+  { x: 6840, y: groundY + 16, width: 28, height: 24 },
+  { x: 7290, y: groundY + 16, width: 28, height: 24 },
+  { x: 7760, y: groundY + 16, width: 28, height: 24 },
 ];
 
 // Үүлнүүд

@@ -87,6 +87,15 @@ interface JoinSuccessPayload {
   playerId: string | number;
   playerIndex?: number;
 }
+
+interface BufferedSnapshot {
+  receivedAt: number;
+  players: Record<string, Player>;
+}
+
+const INTERPOLATION_DELAY_MS = 100;
+const MAX_SNAPSHOT_BUFFER = 40;
+
 const World2 = () => {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -125,6 +134,7 @@ const World2 = () => {
   const prevLocalPlayerRef = useRef<{ onGround: boolean } | null>(null);
   const prevShouldShowDeathRef = useRef(false);
   const smoothedPlayersRef = useRef<Record<string, Player>>({});
+  const snapshotBufferRef = useRef<BufferedSnapshot[]>([]);
 
   const animTimer = useRef(0);
   const winTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -326,6 +336,7 @@ const World2 = () => {
       setIsConnected(false);
       setIsReconnecting(false);
       smoothedPlayersRef.current = {};
+      snapshotBufferRef.current = [];
       setGameState({
         players: {},
         keyCollected: false,
@@ -347,6 +358,19 @@ const World2 = () => {
           },
         ]),
       );
+
+      snapshotBufferRef.current.push({
+        receivedAt: performance.now(),
+        players: Object.fromEntries(
+          Object.entries(mergedPlayers).map(([playerKey, playerValue]) => [
+            playerKey,
+            { ...playerValue },
+          ]),
+        ),
+      });
+      if (snapshotBufferRef.current.length > MAX_SNAPSHOT_BUFFER) {
+        snapshotBufferRef.current.shift();
+      }
 
       setGameState({
         ...state,
@@ -548,6 +572,8 @@ const World2 = () => {
       s.off("roomState");
       s.off("joinDenied");
       s.off("joinSuccess");
+      snapshotBufferRef.current = [];
+      smoothedPlayersRef.current = {};
       s.disconnect();
     };
   }, [router, nextLevelRoute]);
@@ -609,7 +635,7 @@ const World2 = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    tickId = setInterval(sendInputToServer, 1000 / 20);
+    tickId = setInterval(sendInputToServer, 1000 / 40);
 
     return () => {
       // Cleanup
@@ -653,17 +679,79 @@ const World2 = () => {
     const state = gameStateRef.current;
     const currentCanvasSize = canvasSizeRef.current;
     const localPlayerId = localStorage.getItem("playerId")?.trim() ?? "";
-    const serverPlayerEntries = Object.entries(state.players ?? {});
+    const snapshotBuffer = snapshotBufferRef.current;
+    const renderTimestamp = performance.now() - INTERPOLATION_DELAY_MS;
+    while (
+      snapshotBuffer.length >= 2 &&
+      snapshotBuffer[1].receivedAt <= renderTimestamp
+    ) {
+      snapshotBuffer.shift();
+    }
+
+    let bufferedPlayers: Record<string, Player> = {};
+    if (snapshotBuffer.length >= 2) {
+      const older = snapshotBuffer[0];
+      const newer = snapshotBuffer[1];
+      const windowMs = Math.max(1, newer.receivedAt - older.receivedAt);
+      const t = Math.max(0, Math.min(1, (renderTimestamp - older.receivedAt) / windowMs));
+      const ids = new Set([
+        ...Object.keys(older.players),
+        ...Object.keys(newer.players),
+      ]);
+
+      ids.forEach((playerKey) => {
+        const from = older.players[playerKey];
+        const to = newer.players[playerKey];
+        if (from && to) {
+          bufferedPlayers[playerKey] = {
+            ...to,
+            x: from.x + (to.x - from.x) * t,
+            y: from.y + (to.y - from.y) * t,
+            vx: from.vx + (to.vx - from.vx) * t,
+            vy: from.vy + (to.vy - from.vy) * t,
+          };
+          return;
+        }
+
+        if (to) {
+          bufferedPlayers[playerKey] = { ...to };
+        } else if (from) {
+          bufferedPlayers[playerKey] = { ...from };
+        }
+      });
+    } else if (snapshotBuffer.length === 1) {
+      bufferedPlayers = Object.fromEntries(
+        Object.entries(snapshotBuffer[0].players).map(([playerKey, playerValue]) => [
+          playerKey,
+          { ...playerValue },
+        ]),
+      );
+    } else {
+      bufferedPlayers = Object.fromEntries(
+        Object.entries(state.players ?? {}).map(([playerKey, playerValue]) => [
+          playerKey,
+          { ...playerValue },
+        ]),
+      );
+    }
+
+    // Local player-ийг delayгүй authoritative state-аар шууд харуулна.
+    if (localPlayerId && state.players?.[localPlayerId]) {
+      bufferedPlayers[localPlayerId] = { ...state.players[localPlayerId] };
+    }
+
+    const serverPlayerEntries = Object.entries(bufferedPlayers);
     const smoothedPlayers = smoothedPlayersRef.current;
 
     const LERP_PRESET: "tight" | "smooth" = "tight";
-    const LIVE_LERP = LERP_PRESET === "tight" ? 0.28 : 0.18;
+    const REMOTE_LERP = LERP_PRESET === "tight" ? 0.28 : 0.18;
     const SNAP_DISTANCE = 120;
 
     const livePlayerIds = new Set<string>();
     for (const [playerKey, playerValue] of serverPlayerEntries) {
       livePlayerIds.add(playerKey);
 
+      // Local player-г smoothing хийхгүй: шууд authoritative state-р зурна.
       if (playerKey === localPlayerId) {
         smoothedPlayers[playerKey] = { ...playerValue };
         continue;
@@ -677,12 +765,13 @@ const World2 = () => {
 
       const dx = playerValue.x - previous.x;
       const dy = playerValue.y - previous.y;
-      const shouldSnap = Math.abs(dx) > SNAP_DISTANCE || Math.abs(dy) > SNAP_DISTANCE;
+      const shouldSnap =
+        Math.abs(dx) > SNAP_DISTANCE || Math.abs(dy) > SNAP_DISTANCE;
 
       smoothedPlayers[playerKey] = {
         ...playerValue,
-        x: shouldSnap ? playerValue.x : previous.x + dx * LIVE_LERP,
-        y: shouldSnap ? playerValue.y : previous.y + dy * LIVE_LERP,
+        x: shouldSnap ? playerValue.x : previous.x + dx * REMOTE_LERP,
+        y: shouldSnap ? playerValue.y : previous.y + dy * REMOTE_LERP,
       };
     }
 
@@ -712,7 +801,7 @@ const World2 = () => {
           ...state.door,
         }
       : doorRef.current;
-    const inferredGroundTop = door.y + door.height;
+    const inferredGroundTop = platformsRef.current[0]?.y ?? door.y + door.height;
     const platforms = [
       {
         x: 0,

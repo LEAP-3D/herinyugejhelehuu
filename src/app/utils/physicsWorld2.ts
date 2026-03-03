@@ -12,6 +12,9 @@ import {
 } from "@/app/utils/gameDataWorld2";
 import { InputHandler } from "@/app/utils/inputHandlerWorld2";
 
+const FALL_GRAVITY_MULTIPLIER = 1.75;
+const LOW_JUMP_GRAVITY_MULTIPLIER = 2.15;
+
 // Мөргөлдөөн шалгах
 export const checkCollision = (
   rect1: { x: number; y: number; width: number; height: number },
@@ -72,8 +75,16 @@ export const updatePlayerMovement = (
     player.onGround = false;
   }
 
+  // Platformer feel: доошлохдоо хурдан, товч үсрэлт таслах үед илүү хурдан доош татна.
+  const gravityMultiplier =
+    player.vy > 0
+      ? FALL_GRAVITY_MULTIPLIER
+      : player.vy < 0 && !playerInput.jump
+        ? LOW_JUMP_GRAVITY_MULTIPLIER
+        : 1;
+
   // Таталцал
-  player.vy += GRAVITY;
+  player.vy += GRAVITY * gravityMultiplier;
   player.x += player.vx;
   player.y += player.vy;
 
