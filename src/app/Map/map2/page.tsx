@@ -93,7 +93,7 @@ interface BufferedSnapshot {
   players: Record<string, Player>;
 }
 
-const INTERPOLATION_DELAY_MS = 100;
+const INTERPOLATION_DELAY_MS = 70;
 const MAX_SNAPSHOT_BUFFER = 40;
 
 const World2 = () => {
@@ -635,7 +635,7 @@ const World2 = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    tickId = setInterval(sendInputToServer, 1000 / 40);
+    tickId = setInterval(sendInputToServer, 1000 / 50);
 
     return () => {
       // Cleanup
@@ -744,7 +744,7 @@ const World2 = () => {
     const smoothedPlayers = smoothedPlayersRef.current;
 
     const LERP_PRESET: "tight" | "smooth" = "tight";
-    const REMOTE_LERP = LERP_PRESET === "tight" ? 0.28 : 0.18;
+    const REMOTE_LERP = LERP_PRESET === "tight" ? 0.45 : 0.3;
     const SNAP_DISTANCE = 120;
 
     const livePlayerIds = new Set<string>();
