@@ -12,8 +12,10 @@ import {
 } from "@/app/utils/gameDataWorld2";
 import { InputHandler } from "@/app/utils/inputHandlerWorld2";
 
-const FALL_GRAVITY_MULTIPLIER = 1.75;
-const LOW_JUMP_GRAVITY_MULTIPLIER = 2.15;
+const RISE_GRAVITY_MULTIPLIER = 1.12;
+const FALL_GRAVITY_MULTIPLIER = 1.55;
+const LOW_JUMP_GRAVITY_MULTIPLIER = 2.0;
+const MAX_FALL_SPEED = 16;
 
 // Мөргөлдөөн шалгах
 export const checkCollision = (
@@ -79,12 +81,17 @@ export const updatePlayerMovement = (
   const gravityMultiplier =
     player.vy > 0
       ? FALL_GRAVITY_MULTIPLIER
-      : player.vy < 0 && !playerInput.jump
-        ? LOW_JUMP_GRAVITY_MULTIPLIER
+      : player.vy < 0
+        ? playerInput.jump
+          ? RISE_GRAVITY_MULTIPLIER
+          : LOW_JUMP_GRAVITY_MULTIPLIER
         : 1;
 
   // Таталцал
   player.vy += GRAVITY * gravityMultiplier;
+  if (player.vy > MAX_FALL_SPEED) {
+    player.vy = MAX_FALL_SPEED;
+  }
   player.x += player.vx;
   player.y += player.vy;
 

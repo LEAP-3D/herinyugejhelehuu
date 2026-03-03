@@ -41,12 +41,20 @@ import {
 } from "@/app/utils/gameSfx";
 
 const World1Multiplayer = () => {
-  interface GameStatePayload extends GameState {
+interface GameStatePayload extends GameState {
     movingPlatforms?: MovingPlatform[];
     fallingPlatforms?: FallingPlatform[];
     key?: Key;
     door?: Door;
   }
+
+  interface BufferedSnapshot {
+    receivedAt: number;
+    players: Record<string, GameState["players"][string]>;
+  }
+
+  const INTERPOLATION_DELAY_MS = 70;
+  const MAX_SNAPSHOT_BUFFER = 40;
 
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -89,6 +97,10 @@ const World1Multiplayer = () => {
   const sfxRef = useRef<GameSfxController | null>(null);
   const prevLocalPlayerRef = useRef<{ onGround: boolean } | null>(null);
   const prevShouldShowDeathRef = useRef(false);
+  const smoothedPlayersRef = useRef<Record<string, GameState["players"][string]>>(
+    {},
+  );
+  const snapshotBufferRef = useRef<BufferedSnapshot[]>([]);
 
   // Game systems
   const cameraController = useRef(new CameraController());
@@ -121,11 +133,6 @@ const World1Multiplayer = () => {
     setIsPauseMenuOpen(false);
     router.push("/");
   }, [router]);
-
-  const applyTetherConstraint = useCallback((players: GameState["players"]) => {
-    // Tether mechanic disabled: use authoritative positions from server as-is.
-    return Object.values(players);
-  }, []);
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -203,6 +210,8 @@ const World1Multiplayer = () => {
     const resetClientState = () => {
       setIsConnected(false);
       setIsReconnecting(false);
+      smoothedPlayersRef.current = {};
+      snapshotBufferRef.current = [];
       setGameState({
         players: {},
         keyCollected: false,
@@ -226,6 +235,19 @@ const World1Multiplayer = () => {
           },
         ]),
       );
+
+      snapshotBufferRef.current.push({
+        receivedAt: performance.now(),
+        players: Object.fromEntries(
+          Object.entries(mergedPlayers).map(([playerKey, playerValue]) => [
+            playerKey,
+            { ...playerValue },
+          ]),
+        ),
+      });
+      if (snapshotBufferRef.current.length > MAX_SNAPSHOT_BUFFER) {
+        snapshotBufferRef.current.shift();
+      }
 
       setGameState({
         ...state,
@@ -465,6 +487,8 @@ const World1Multiplayer = () => {
       s.off("roomState");
       s.off("joinDenied");
       s.off("joinSuccess");
+      snapshotBufferRef.current = [];
+      smoothedPlayersRef.current = {};
       s.disconnect();
     };
   }, [router, nextLevelRoute]);
@@ -595,7 +619,7 @@ const World1Multiplayer = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    tickId = setInterval(sendInputToServer, 1000 / 20);
+    tickId = setInterval(sendInputToServer, 1000 / 50);
 
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
@@ -638,7 +662,104 @@ const World1Multiplayer = () => {
 
     const state = gameStateRef.current;
     const currentCanvasSize = canvasSizeRef.current;
-    const players = applyTetherConstraint(state.players);
+    const localPlayerId = localStorage.getItem("playerId")?.trim() ?? "";
+    const snapshotBuffer = snapshotBufferRef.current;
+    const renderTimestamp = performance.now() - INTERPOLATION_DELAY_MS;
+    while (
+      snapshotBuffer.length >= 2 &&
+      snapshotBuffer[1].receivedAt <= renderTimestamp
+    ) {
+      snapshotBuffer.shift();
+    }
+
+    let bufferedPlayers: Record<string, GameState["players"][string]> = {};
+    if (snapshotBuffer.length >= 2) {
+      const older = snapshotBuffer[0];
+      const newer = snapshotBuffer[1];
+      const windowMs = Math.max(1, newer.receivedAt - older.receivedAt);
+      const t = Math.max(
+        0,
+        Math.min(1, (renderTimestamp - older.receivedAt) / windowMs),
+      );
+      const ids = new Set([
+        ...Object.keys(older.players),
+        ...Object.keys(newer.players),
+      ]);
+
+      ids.forEach((playerKey) => {
+        const from = older.players[playerKey];
+        const to = newer.players[playerKey];
+        if (from && to) {
+          bufferedPlayers[playerKey] = {
+            ...to,
+            x: from.x + (to.x - from.x) * t,
+            y: from.y + (to.y - from.y) * t,
+            vx: from.vx + (to.vx - from.vx) * t,
+            vy: from.vy + (to.vy - from.vy) * t,
+          };
+          return;
+        }
+        if (to) bufferedPlayers[playerKey] = { ...to };
+        else if (from) bufferedPlayers[playerKey] = { ...from };
+      });
+    } else if (snapshotBuffer.length === 1) {
+      bufferedPlayers = Object.fromEntries(
+        Object.entries(snapshotBuffer[0].players).map(([playerKey, playerValue]) => [
+          playerKey,
+          { ...playerValue },
+        ]),
+      );
+    } else {
+      bufferedPlayers = Object.fromEntries(
+        Object.entries(state.players ?? {}).map(([playerKey, playerValue]) => [
+          playerKey,
+          { ...playerValue },
+        ]),
+      );
+    }
+
+    // Local player-г delay хийхгүй.
+    if (localPlayerId && state.players?.[localPlayerId]) {
+      bufferedPlayers[localPlayerId] = { ...state.players[localPlayerId] };
+    }
+
+    const smoothedPlayers = smoothedPlayersRef.current;
+    const REMOTE_LERP = 0.45;
+    const SNAP_DISTANCE = 120;
+    const livePlayerIds = new Set<string>();
+
+    Object.entries(bufferedPlayers).forEach(([playerKey, playerValue]) => {
+      livePlayerIds.add(playerKey);
+      if (playerKey === localPlayerId) {
+        smoothedPlayers[playerKey] = { ...playerValue };
+        return;
+      }
+
+      const previous = smoothedPlayers[playerKey];
+      if (!previous) {
+        smoothedPlayers[playerKey] = { ...playerValue };
+        return;
+      }
+
+      const dx = playerValue.x - previous.x;
+      const dy = playerValue.y - previous.y;
+      const shouldSnap =
+        Math.abs(dx) > SNAP_DISTANCE || Math.abs(dy) > SNAP_DISTANCE;
+
+      smoothedPlayers[playerKey] = {
+        ...playerValue,
+        x: shouldSnap ? playerValue.x : previous.x + dx * REMOTE_LERP,
+        y: shouldSnap ? playerValue.y : previous.y + dy * REMOTE_LERP,
+      };
+    });
+
+    Object.keys(smoothedPlayers).forEach((playerKey) => {
+      if (!livePlayerIds.has(playerKey)) {
+        delete smoothedPlayers[playerKey];
+      }
+    });
+
+    const players = Object.values(smoothedPlayers);
     const platforms = platformsRef.current;
     const movingPlatforms = movingPlatformsRef.current;
     const fallingPlatforms = fallingPlatformsRef.current;
@@ -648,7 +769,6 @@ const World1Multiplayer = () => {
 
     key.collected = state.keyCollected;
 
-    const localPlayerId = localStorage.getItem("playerId")?.trim();
     const localPlayer = localPlayerId
       ? state.players[localPlayerId]
       : undefined;
@@ -719,7 +839,7 @@ const World1Multiplayer = () => {
     if (shouldShowDeath) {
       renderer.current.renderDeathScreen(gameImages.current);
     }
-  }, [applyTetherConstraint]);
+  }, []);
 
   useEffect(() => {
     if (gameState.gameStatus !== "dead") {
