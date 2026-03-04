@@ -95,7 +95,6 @@ interface BufferedSnapshot {
 
 const INTERPOLATION_DELAY_MS = 70;
 const MAX_SNAPSHOT_BUFFER = 40;
-const LOCAL_PREDICT_PX = 20;
 
 const World2 = () => {
   const router = useRouter();
@@ -740,20 +739,11 @@ const World2 = () => {
       );
     }
 
-    // Local player-ийг delayгүй authoritative state-аар шууд харуулна.
+    // Local player-ийг authoritative state-аар шууд харуулж
+    // server correction-оос үүсэх "урагшаа алхаад буцах" jitter-ийг багасгана.
     if (localPlayerId && state.players?.[localPlayerId]) {
-      const localAuthoritative = state.players[localPlayerId];
-      const localInput = inputHandler.current.getUniversalInput();
-      const direction =
-        localInput.left && !localInput.right
-          ? -1
-          : localInput.right && !localInput.left
-            ? 1
-            : 0;
-
       bufferedPlayers[localPlayerId] = {
-        ...localAuthoritative,
-        x: Math.max(0, localAuthoritative.x + direction * LOCAL_PREDICT_PX),
+        ...state.players[localPlayerId],
       };
     }
 
@@ -762,15 +752,32 @@ const World2 = () => {
 
     const LERP_PRESET: "tight" | "smooth" = "tight";
     const REMOTE_LERP = LERP_PRESET === "tight" ? 0.45 : 0.3;
+    const LOCAL_LERP = 0.75;
+    const LOCAL_SNAP_DISTANCE = 100;
     const SNAP_DISTANCE = 120;
 
     const livePlayerIds = new Set<string>();
     for (const [playerKey, playerValue] of serverPlayerEntries) {
       livePlayerIds.add(playerKey);
 
-      // Local player-г smoothing хийхгүй: шууд authoritative state-р зурна.
       if (playerKey === localPlayerId) {
-        smoothedPlayers[playerKey] = { ...playerValue };
+        const previous = smoothedPlayers[playerKey];
+        if (!previous) {
+          smoothedPlayers[playerKey] = { ...playerValue };
+          continue;
+        }
+
+        const dx = playerValue.x - previous.x;
+        const dy = playerValue.y - previous.y;
+        const shouldSnap =
+          Math.abs(dx) > LOCAL_SNAP_DISTANCE ||
+          Math.abs(dy) > LOCAL_SNAP_DISTANCE;
+
+        smoothedPlayers[playerKey] = {
+          ...playerValue,
+          x: shouldSnap ? playerValue.x : previous.x + dx * LOCAL_LERP,
+          y: shouldSnap ? playerValue.y : previous.y + dy * LOCAL_LERP,
+        };
         continue;
       }
 
