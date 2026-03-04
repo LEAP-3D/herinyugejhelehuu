@@ -137,8 +137,6 @@ export const createPlatforms = (groundY: number): Platform[] => [
 
 // Аюултай товчнууд
 export const createDangerButtons = (groundY: number): DangerButton[] => [
-  { x: 1040, y: groundY + 18, width: 28, height: 24 },
-  { x: 1420, y: groundY + 18, width: 28, height: 24 },
   { x: 1880, y: groundY + 18, width: 28, height: 24 },
   { x: 2190, y: groundY + 18, width: 28, height: 24 },
   { x: 2660, y: groundY + 18, width: 28, height: 24 },

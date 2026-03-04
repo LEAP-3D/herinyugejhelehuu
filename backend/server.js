@@ -239,8 +239,6 @@ function buildWorld2Platforms(baseY = WORLD2_BASE_Y) {
 function buildWorld2DangerButtons(baseY = WORLD2_BASE_Y) {
   const gy = baseY;
   return [
-    { x: 1040, y: gy + 18, width: 28, height: 24 },
-    { x: 1420, y: gy + 18, width: 28, height: 24 },
     { x: 1880, y: gy + 18, width: 28, height: 24 },
     { x: 2190, y: gy + 18, width: 28, height: 24 },
     { x: 2660, y: gy + 18, width: 28, height: 24 },
