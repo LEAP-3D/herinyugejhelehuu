@@ -95,6 +95,7 @@ interface BufferedSnapshot {
 
 const INTERPOLATION_DELAY_MS = 70;
 const MAX_SNAPSHOT_BUFFER = 40;
+const LOCAL_PREDICT_PX = 20;
 
 const World2 = () => {
   const router = useRouter();
@@ -737,7 +738,19 @@ const World2 = () => {
 
     // Local player-ийг delayгүй authoritative state-аар шууд харуулна.
     if (localPlayerId && state.players?.[localPlayerId]) {
-      bufferedPlayers[localPlayerId] = { ...state.players[localPlayerId] };
+      const localAuthoritative = state.players[localPlayerId];
+      const localInput = inputHandler.current.getUniversalInput();
+      const direction =
+        localInput.left && !localInput.right
+          ? -1
+          : localInput.right && !localInput.left
+            ? 1
+            : 0;
+
+      bufferedPlayers[localPlayerId] = {
+        ...localAuthoritative,
+        x: Math.max(0, localAuthoritative.x + direction * LOCAL_PREDICT_PX),
+      };
     }
 
     const serverPlayerEntries = Object.entries(bufferedPlayers);
