@@ -379,15 +379,15 @@ const World2 = () => {
       setConnectionError("");
       setHasKey(state.keyCollected);
 
-      if (winTimerRef.current) {
+      if (state.gameStatus === "won") {
+        if (!winTimerRef.current) {
+          winTimerRef.current = setTimeout(() => {
+            router.push(nextLevelRoute);
+          }, 3000);
+        }
+      } else if (winTimerRef.current) {
         clearTimeout(winTimerRef.current);
         winTimerRef.current = null;
-      }
-
-      if (state.gameStatus === "won") {
-        winTimerRef.current = setTimeout(() => {
-          router.push(nextLevelRoute);
-        }, 3000);
       }
     };
 

@@ -188,15 +188,15 @@ const World1Multiplayer = () => {
         };
       }
 
-      if (winTimerRef.current) {
+      if (state.gameStatus === "won") {
+        if (!winTimerRef.current) {
+          winTimerRef.current = setTimeout(() => {
+            router.push(nextLevelRoute);
+          }, 3000);
+        }
+      } else if (winTimerRef.current) {
         clearTimeout(winTimerRef.current);
         winTimerRef.current = null;
-      }
-
-      if (state.gameStatus === "won") {
-        winTimerRef.current = setTimeout(() => {
-          router.push(nextLevelRoute);
-        }, 3000);
       }
     };
 
@@ -383,6 +383,7 @@ const World1Multiplayer = () => {
     // Серверт input илгээх функц
     const sendInputToServer = () => {
       if (!socketRef.current || !isConnected) return;
+      if (gameState.gameStatus === "won") return;
 
       const pid = localStorage.getItem("playerId");
       if (!pid) return;
@@ -433,7 +434,7 @@ const World1Multiplayer = () => {
         handler.cleanup();
       }
     };
-  }, [isConnected]);
+  }, [isConnected, gameState.gameStatus]);
 
   /**
    * ✅ RENDER LOOP
