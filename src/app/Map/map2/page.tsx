@@ -589,6 +589,7 @@ const World2 = () => {
     // Серверт input илгээх функц
     const sendInputToServer = () => {
       if (!socketRef.current || !isConnected || isPauseMenuOpen) return;
+      if (gameStateRef.current.gameStatus === "won") return;
 
       const pid = localStorage.getItem("playerId");
       if (!pid) return;

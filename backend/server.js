@@ -93,7 +93,7 @@ const io = new Server(server, {
 const WORLD1_PHYSICS = {
   gravity: 0.3,
   moveSpeed: 3,
-  jumpForce: -14,
+  jumpForce: -11,
   maxFallSpeed: 18,
 };
 
@@ -607,11 +607,13 @@ function applyPlayerStep(room, playerId, dtScale) {
   if (input.left) {
     player.vx = -world.moveSpeed;
     player.facingRight = false;
-    player.animFrame = (player.animFrame + 1) % 4;
+    // Keep walk state non-zero to avoid flickering back to idle sprite.
+    player.animFrame = 1;
   } else if (input.right) {
     player.vx = world.moveSpeed;
     player.facingRight = true;
-    player.animFrame = (player.animFrame + 1) % 4;
+    // Keep walk state non-zero to avoid flickering back to idle sprite.
+    player.animFrame = 1;
   } else {
     player.vx = 0;
     player.animFrame = 0;
@@ -776,6 +778,19 @@ function evaluateGameState(room) {
 function stepRoom(roomCode) {
   const room = rooms.get(roomCode);
   if (!room || !room.started) return;
+
+  // Freeze simulation after win so players cannot keep moving under victory UI.
+  if (room.gameState.gameStatus === "won") {
+    emitGameState(roomCode);
+    return;
+  }
+
+  // While dead screen is active, pause simulation and only process respawn timer.
+  if (room.gameState.gameStatus === "dead") {
+    evaluateGameState(room);
+    emitGameState(roomCode);
+    return;
+  }
 
   const now = Date.now();
   const frameMs = 1000 / TICK_RATE;
