@@ -280,15 +280,15 @@ interface GameStatePayload extends GameState {
         };
       }
 
-      if (winTimerRef.current) {
+      if (state.gameStatus === "won") {
+        if (!winTimerRef.current) {
+          winTimerRef.current = setTimeout(() => {
+            router.push(nextLevelRoute);
+          }, 3000);
+        }
+      } else if (winTimerRef.current) {
         clearTimeout(winTimerRef.current);
         winTimerRef.current = null;
-      }
-
-      if (state.gameStatus === "won") {
-        winTimerRef.current = setTimeout(() => {
-          router.push(nextLevelRoute);
-        }, 3000);
       }
     };
 
@@ -577,6 +577,7 @@ interface GameStatePayload extends GameState {
     // Серверт input илгээх функц
     const sendInputToServer = () => {
       if (!socketRef.current || !isConnected || isPauseMenuOpen) return;
+      if (gameStateRef.current.gameStatus === "won") return;
 
       const pid = localStorage.getItem("playerId");
       if (!pid) return;
