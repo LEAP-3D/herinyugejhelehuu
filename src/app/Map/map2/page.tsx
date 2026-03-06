@@ -55,7 +55,6 @@ import {
 } from "@/app/utils/renderWorld2";
 import {
   checkDangerButtonCollision,
-  checkFallOffScreen,
 } from "@/app/utils/physicsWorld2";
 import {
   createGameSfxController,
@@ -73,6 +72,8 @@ interface GameState {
   keyCollected: boolean;
   playersAtDoor: number[];
   gameStatus: "waiting" | "playing" | "won" | "dead";
+  groundY?: number;
+  platforms?: Platform[];
   key?: Omit<Key, "collected">;
   door?: Door;
   dangerButtons?: DangerButton[];
@@ -197,7 +198,7 @@ const World2 = () => {
   });
   const cameraRef = useRef<Camera>({ x: 0, y: 0 });
 
-  const nextLevelRoute = "/Home-page/Multiplayer";
+  const nextLevelRoute = "/";
   const handleExitGame = useCallback(() => {
     socketRef.current?.disconnect();
     [
@@ -826,15 +827,15 @@ const World2 = () => {
           ...state.door,
         }
       : doorRef.current;
-    const inferredGroundTop = platformsRef.current[0]?.y ?? door.y + door.height;
-    const platforms = [
-      {
-        x: 0,
-        y: inferredGroundTop,
-        width: 8200,
-        height: 20,
-      },
-    ];
+    const serverPlatforms =
+      Array.isArray(state.platforms) && state.platforms.length > 0
+        ? state.platforms
+        : platformsRef.current;
+    const inferredGroundTop =
+      serverPlatforms[0]?.y ??
+      (Number.isFinite(state.groundY) ? (state.groundY as number) - 20 : undefined) ??
+      door.y + door.height;
+    const platforms = serverPlatforms;
     const camera = cameraRef.current;
 
     animTimer.current++;
@@ -871,12 +872,7 @@ const World2 = () => {
     const hitDangerButton = localPlayer
       ? checkDangerButtonCollision(localPlayer, dangerButtons)
       : false;
-    const fellOffScreen = localPlayer
-      ? checkFallOffScreen(localPlayer, currentCanvasSize.height)
-      : false;
-    const isDeadByWorldRules = localPlayer
-      ? localPlayer.dead || hitDangerButton || fellOffScreen
-      : false;
+    const isDeadByWorldRules = Boolean(localPlayer?.dead);
     const shouldShowDeath = state.gameStatus === "dead" || isDeadByWorldRules;
     if (shouldShowDeath && !prevShouldShowDeathRef.current) {
       sfxRef.current?.playDeath(hitDangerButton ? "danger" : "normal");
