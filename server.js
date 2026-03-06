@@ -467,6 +467,8 @@ function emitGameState(roomCode) {
       ? room.gameState.gameStatus || "playing"
       : "waiting",
     world: room.world,
+    groundY: world.groundY,
+    platforms: world.platforms,
     key: world.key,
     door: world.door,
     dangerButtons: world.dangerButtons,
